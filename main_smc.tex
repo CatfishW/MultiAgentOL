@@ -30,19 +30,34 @@ Conditional Retrieval in a Repository-Grounded Multi-Agent Study
 \pagestyle{empty}
 
 \begin{abstract}
-Retrieval-augmented generation (RAG) is a strong baseline for evidence-grounded QA, but tutoring quality depends on more than retrieval: learner diagnosis, scaffold choice, rubric alignment, and calibrated help. We present a repository-grounded adaptive tutoring system that routes each example among classical RAG, hybrid agentic RAG, and coordination-first non-RAG pipelines. The implementation combines lightweight regime routing, specialist-agent orchestration, conditional retrieval, and profile-aware evaluation. Using frozen benchmark snapshots from EduBench and TutorEval, we find regime-dependent winners rather than a single dominant architecture. On fully converged TutorEval runs, the hybrid route gives the best quality-efficiency frontier (Token-F1, grounded overlap, rubric coverage, and latency). On partial EduBench trajectories, coordination-heavy routes currently lead rubric-oriented metrics while retrieval-heavy routes remain strongest on grounding-oriented signals. The evidence supports a systems conclusion: in tutoring, retrieval is most effective as a conditional tool inside an adaptive coordination policy.
+Retrieval-augmented generation (RAG) is effective for evidence-grounded question answering, but tutoring quality depends on broader system behavior: learner diagnosis, scaffold sequencing, rubric alignment, and calibrated help. We present a repository-grounded adaptive tutoring system that routes each example among classical RAG, hybrid agentic RAG, and coordination-first non-RAG pipelines. The implementation combines a lightweight regime router, specialist-agent orchestration, conditional retrieval with fallback logic, and profile-aware benchmark evaluation. Using frozen metrics from EduBench and TutorEval, we find regime-dependent winners rather than a single dominant architecture. On fully converged TutorEval runs, the hybrid path provides the strongest quality-efficiency frontier (Token-F1, grounded overlap, rubric coverage, keypoint recall, latency, and token cost). On partial EduBench trajectories, coordination-heavy routes currently lead rubric-oriented metrics and throughput, while retrieval-heavy routes remain stronger on grounding and score-alignment signals. The evidence supports a practical conclusion: in tutoring systems, retrieval is often best treated as a conditional capability inside adaptive orchestration rather than as a fixed top-level controller.
 \end{abstract}
 
 \section{Introduction}
-Classical RAG improved factual grounding in language-model pipelines \cite{lewis2020rag}, but tutoring workloads require additional control dimensions: when to explain, when to withhold, how to scaffold, and how to stay aligned with a grading rubric. Recent educational benchmarks emphasize these dimensions directly, including pedagogical quality, adaptivity, and safety \cite{xu2025edubench,chevalier2024sciencetutors,macina2025mathtutorbench,srinivasa2025tutorbench}. In parallel, multi-agent studies suggest that once tasks require planning and staged coordination, orchestration policy can dominate prompt-only gains \cite{nguyen2025marag,radeva2025coordination}.
+Classical RAG became a default architecture for grounding language-model outputs in external evidence \cite{lewis2020rag}. That default is appropriate for many factual tasks, but tutoring introduces additional control requirements: deciding when to explain directly versus scaffold, modeling learner state, aligning feedback with rubrics, and balancing correctness with pedagogical strategy. Education-focused benchmarks increasingly evaluate these dimensions directly \cite{xu2025edubench,chevalier2024sciencetutors,macina2025mathtutorbench,srinivasa2025tutorbench}.
 
-We study this gap with a repository-grounded question: \emph{when should tutoring systems treat retrieval as the main controller, and when should retrieval be a conditional component inside a broader multi-agent policy?} Our contribution is an implementation-backed comparison across architecture families already executable in the codebase: \texttt{classical\_rag}, \texttt{agentic\_rag}, \texttt{non\_rag\_multi\_agent}, \texttt{single\_agent\_no\_rag}, and \texttt{hybrid\_fast}. We report both quality and operating-cost behavior under the frozen session snapshot.
+The central question of this paper is not whether multi-agent systems should universally replace retrieval. Instead, we ask \emph{when retrieval-first control is sufficient for educational workloads, and when orchestration-first control becomes justified}. This framing follows recent evidence that coordination policy can dominate performance once tasks require decomposition, critique, and staged execution \cite{nguyen2025marag,radeva2025coordination,liu2023agentbench}.
+
+We make three contributions. First, we present an implementation-grounded comparison among executable architecture families in the repository: \texttt{classical\_rag}, \texttt{agentic\_rag}, \texttt{non\_rag\_multi\_agent}, \texttt{single\_agent\_no\_rag}, and \texttt{hybrid\_fast}. Second, we document the methodology at system level: routing logic, conditional retrieval, specialist orchestration, and profile-aware metric computation. Third, we report frozen benchmark evidence with explicit completion-state caveats, separating converged endpoint conclusions (TutorEval) from partial trajectory conclusions (EduBench).
+
+\section{Related Work}
+\textbf{Educational tutoring benchmarks.}
+Recent educational benchmark design shifts beyond short-answer correctness toward pedagogical quality and adaptivity. EduBench evaluates adaptation, pedagogy, and educational utility across multiple educational scenarios \cite{xu2025edubench}. TutorEval frames science tutoring with open-book and closed-book contexts and keypoint-oriented evaluation \cite{chevalier2024sciencetutors}. MathTutorBench and TutorBench further emphasize tutoring dialogue quality and rubric-sensitive behavior \cite{macina2025mathtutorbench,srinivasa2025tutorbench}.
+
+\textbf{RAG and agentic retrieval.}
+Classical retrieval-then-generate pipelines remain a strong baseline in evidence-grounded settings \cite{lewis2020rag}. Agentic retrieval variants, including self-reflection and corrective retrieval, indicate that retrieval quality depends on control policy rather than retrieval alone \cite{asai2024selfrag,yan2024crag}. In long-context educational settings, additional planning and filtering are often needed because context length alone does not guarantee effective grounding \cite{bai2024longbench2,liu2024lostmiddle}.
+
+\textbf{Coordination-heavy architectures.}
+Multi-agent studies suggest that explicit role specialization can improve complex workflows with decomposition and verification \cite{nguyen2025marag,radeva2025coordination,liu2023agentbench}. Educational tutoring tasks naturally map to role-specialized execution (planner, diagnoser, rubric, tutor, critic), motivating architecture selection by task regime rather than a single static controller.
 
 \section{Methodology}
-\subsection{Adaptive routing and execution policy}
-The runtime uses a \texttt{LightweightRegimeRouter} to map each example to a regime and architecture family. Routing combines dataset priors with feature scores for evidence demand, coordination demand, rubric demand, planning demand, and tutoring demand. The router emits execution flags (for example, \texttt{require\_retrieval}, \texttt{use\_rubric\_agent}, \texttt{use\_critic}) so control policy is explicit rather than hidden in prompts.
+\subsection{Task framing and route selection}
+We frame educational workloads along two axes: evidence-grounding demand and pedagogical-coordination demand. The runtime uses a \texttt{LightweightRegimeRouter} that combines dataset priors and heuristic scores (evidence, coordination, rubric, planning, tutoring) to emit a route decision. The decision includes architecture family and execution flags such as \texttt{require\_retrieval}, \texttt{use\_rubric\_agent}, and \texttt{use\_critic}.
 
-Pipeline execution is architecture-specific but interface-consistent. In agentic and hybrid paths, planner, diagnoser, and rubric specialists run in parallel before tutor synthesis. The hybrid path keeps retrieval conditional: retrieval is skipped when route-level evidence demand is low, and a fallback retrieval pass is triggered only when initial retrieval is empty and evidence score remains high enough for re-query.
+This design keeps routing transparent and inspectable. A route is not a hidden prompt artifact; it is an explicit policy output recorded in traces. In deployment terms, the router acts as a low-overhead control layer that decides whether the system should prioritize retrieval depth, coordination depth, or a hybrid plan.
+
+\subsection{Specialist orchestration and conditional retrieval}
+Agentic and hybrid paths execute planner, diagnoser, and rubric specialists in parallel, then pass their artifacts into tutor synthesis. Critic-based revision can be enabled per route. Crucially, retrieval is conditional in the hybrid path: if route-level evidence demand is low, retrieval can be skipped; if evidence demand is high and initial retrieval returns no chunks, fallback retrieval is triggered with a direct-question re-query.
 
 \begin{figure}[t]
 \centering
@@ -50,28 +65,50 @@ Pipeline execution is architecture-specific but interface-consistent. In agentic
 \centering
 \textbf{Main Framework Figure Placeholder}\\[2pt]
 Adaptive router selects among \texttt{classical\_rag}, \texttt{hybrid\_fast}, and\\
-\texttt{non\_rag\_multi\_agent} pipelines.\\[2pt]
-Specialists (planner, diagnoser, rubric, tutor, critic) execute under\\
-budgeted orchestration with conditional retrieval and fallback re-query.
+\texttt{non\_rag\_multi\_agent} families.\\[2pt]
+Parallel specialists (planner, diagnoser, rubric, tutor, critic) execute\\
+under explicit budget policy with conditional retrieval and fallback re-query.
 }}
-\caption{Placeholder for the camera-ready architecture diagram.}
+\caption{Placeholder for the camera-ready framework figure.}
 \label{fig:framework_placeholder}
 \end{figure}
 
-\subsection{Conditional retrieval stack}
-Retrieval uses a lightweight hybrid index with weighted lexical, character, and latent signals:
+\subsection{Retrieval, reranking, and context packing}
+The retrieval stack uses a weighted hybrid score:
 \begin{equation}
-s(q,d)=\alpha s_{\text{lex}}+\beta s_{\text{char}}+\gamma s_{\text{latent}},
+s(q,d) = \alpha s_{\text{lex}}(q,d) + \beta s_{\text{char}}(q,d) + \gamma s_{\text{latent}}(q,d),
 \end{equation}
-with default weights exposed in configuration for reproducible ablation. Candidate chunks are deduplicated, reranked with compact pair features (base score, overlap features, phrase and numeric matches, brevity), and packed by MMR-style context selection under a strict character budget.
+where lexical and character TF-IDF channels are combined with optional latent projection. Candidate chunks are merged and deduplicated across query variants, reranked with lightweight pair features (base score, lexical overlap, title overlap, phrase and numeric matches, brevity), and packed with MMR-style selection under strict context budget.
 
-\subsection{Evaluation protocol}
-Evaluation is profile-aware at both adapter and metric layers. For EduBench, the adapter builds a consensus-style supervision profile from model predictions, score fields, and rubric terms. For TutorEval, key points are converted into rubric targets and used as a surrogate supervision signal when explicit gold text is absent. Metrics are computed per example and aggregated across runs, with trace logging for architecture choice, retrieval behavior, and latency.
+\subsection{Profile-aware evaluation}
+Adapters map dataset-specific raw fields into a unified \texttt{BenchmarkExample} schema, but metric activation is profile-aware. EduBench activates score-alignment and JSON-compliance checks; TutorEval activates keypoint and chapter-grounding checks. Shared metrics include overlap, rubric coverage, grounding overlap, latency, and token cost.
 
-\section{Experimental setup}
-We use the frozen session snapshot from repository artifacts (timestamped 2026-04-12 21:18:44 EDT). Two datasets are included: EduBench (large-scale tutoring benchmark; run still in progress at freeze time) and TutorEval (all four architectures fully complete at freeze time). This distinction is critical for interpretation: TutorEval supports endpoint comparison, while EduBench supports trajectory comparison only.
+For overlap, we use token-level F1:
+\begin{equation}
+F_1 = \frac{2PR}{P+R},\quad
+P = \frac{|T_{pred}\cap T_{gold}|}{|T_{pred}|},\quad
+R = \frac{|T_{pred}\cap T_{gold}|}{|T_{gold}|}.
+\end{equation}
 
-We report correctness/overlap, rubric coverage, grounding-oriented overlap, profile-specific alignment metrics, and operating-cost metrics (latency and generated tokens). This paper treats those axes separately to avoid collapsing pedagogical quality and systems efficiency into a single scalar.
+EduBench score alignment is computed as:
+\begin{equation}
+\text{EduAlign} = \max\left(0,1-\frac{|\hat{s}-s^*|}{100}\right),
+\end{equation}
+where $\hat{s}$ is predicted score and $s^*$ is consensus-style reference score.
+
+We also report the implementation's complexity proxy:
+\begin{equation}
+\begin{aligned}
+\text{ComplexityUnits} ={}& \text{TotalTokens} + 160\,\text{RetrievalQueries} \\
+&+ 90\,\text{RetrievedChunks} + 240\,\text{AgentCount} \\
+&+ 30\,\text{TraceEvents}.
+\end{aligned}
+\end{equation}
+
+\section{Experimental Setup and Snapshot Protocol}
+All numbers in this paper come from frozen metrics artifacts generated from repository evaluation runs (freeze timestamp: 2026-04-12 21:18:44 EDT). We evaluate four architecture families across EduBench and TutorEval.
+
+A core reporting rule is completion-state discipline: TutorEval is fully converged (all architectures 834/834), while EduBench is partial (coverage 4.02\% to 13.31\% at freeze). Therefore, TutorEval supports endpoint comparisons; EduBench supports only trajectory comparisons.
 
 \begin{table*}[t]
 \caption{Run completion status at freeze time. EduBench is partial; TutorEval is complete.}
@@ -95,9 +132,10 @@ TutorEval & single\_agent\_no\_rag & 834 & 834 & 834 & 100.00 & 0 & 0 \\
 \end{table*}
 
 \section{Results}
-Table~\ref{tab:frozen_quality_summary} reports the frozen quality-efficiency summary. The strongest defensible endpoint result comes from TutorEval (all architectures complete). On TutorEval, \texttt{hybrid\_fast} is the best quality-efficiency operating point: it achieves best token-level overlap, best grounded overlap, best rubric coverage, best keypoint recall, and lowest latency/tokens among compared architectures.
+\subsection{Primary quality-efficiency comparison}
+Table~\ref{tab:frozen_quality_summary} summarizes the frozen snapshot. On converged TutorEval, \texttt{hybrid\_fast} is the strongest overall operating point: best Token-F1, grounded overlap, rubric coverage, and keypoint recall, with lowest latency and token cost. Relative to classical RAG on TutorEval, hybrid improves Token-F1 by 3.3\% and grounded overlap by 5.0\%, while reducing latency by 5.4\% and token usage by 12.2\%.
 
-On EduBench, we avoid endpoint ranking claims because all runs are partial at freeze time. Still, the trajectory shows a consistent pattern: coordination-heavy routes currently lead rubric-oriented metrics and efficiency, while retrieval-heavy routes remain stronger on grounding-oriented overlap and score-alignment fields in this profile. This regime-dependent split is exactly the behavior expected from conditional retrieval rather than fixed retrieval-first control.
+On partial EduBench, interpretation is intentionally conservative. Coordination-heavy routes (hybrid and non-RAG multi-agent) currently lead rubric coverage and throughput, while classical RAG remains strongest on grounded overlap and score alignment in the current profile. This split matches the expected regime behavior: retrieval-first helps calibration/grounding in evidence-heavy slices; orchestration-first helps rubric-centric quality and efficiency under coordination-heavy demands.
 
 \begin{table*}[t]
 \caption{Frozen snapshot quality-efficiency summary. EduBench values are partial-run trajectories; TutorEval values are converged endpoints. Higher is better except latency and tokens.}
@@ -121,13 +159,26 @@ TutorEval & single\_agent\_no\_rag & 100.00 & 0.0865 & 0.0000 & 0.9688 & -- & 0.
 \end{tabular}
 \end{table*}
 
-\section{Discussion and limitations}
-These findings support a practical design rule for tutoring systems: choose architecture by regime, not by doctrine. Retrieval-centric control is preferable when evidence grounding is the dominant bottleneck, while coordination-first control improves rubric alignment and efficiency when pedagogical orchestration dominates.
+\subsection{Tradeoff geometry}
+Figure~\ref{fig:tradeoff} plots the latency-quality frontier from frozen summaries. Hybrid remains near the best observed region across both datasets, while non-RAG routes are competitive on selected pedagogical fields but carry weaker retrieval-grounded overlap in converged TutorEval endpoints.
 
-The current evidence has clear limits. First, EduBench comparisons are partial-run trajectories, not fully converged endpoints. Second, EduBench and TutorEval expose different supervision signals and profile-specific metric availability, so cross-dataset averages should not be over-interpreted. Third, some metrics contain construction-dependent behavior (for example, retrieval recall dependence on expected document IDs), which requires careful reading of protocol details.
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{build-artifacts/tradeoff_quality_latency.pdf}
+\caption{Frozen snapshot quality-latency tradeoff. Preferred architecture changes by regime, but hybrid remains a strong global operating point.}
+\label{fig:tradeoff}
+\end{figure}
+
+\section{Discussion}
+The empirical pattern is not ``more agents always win.'' Instead, the best architecture depends on where task difficulty resides. When evidence grounding is the bottleneck, retrieval-heavy control provides robust calibration. When pedagogical coordination is the bottleneck, specialist orchestration improves rubric-facing quality and efficiency. Hybrid conditional retrieval succeeds because it keeps retrieval available without paying retrieval cost unconditionally.
+
+This regime-dependent interpretation is also aligned with implementation details in the codebase: explicit route scoring, profile-aware metrics, and fallback-triggered retrieval produce behavior that can be audited rather than inferred from prompt anecdotes.
+
+\section{Limitations and Threats to Validity}
+This study has four important limits. First, EduBench is partial at freeze time, so architecture ranking on EduBench must be interpreted as trajectory evidence rather than endpoint evidence. Second, cross-dataset comparability is limited by profile-gated metric activation: some zeros are structural non-applicability, not model failure. Third, some reported fields include construction-dependent edge behavior (for example, citation-coverage fallback when no retrieval chunks are present, retrieval recall dependence on expected document IDs). Fourth, this paper reports system-output quality and efficiency, not longitudinal learner outcomes; educational impact claims require human tutoring studies and long-horizon classroom protocols.
 
 \section{Conclusion}
-We presented an implementation-grounded comparison of retrieval-first and coordination-first tutoring architectures under a shared adaptive router. The key result is regime dependence: no single architecture dominates across educational workloads. Fully converged TutorEval results favor hybrid conditional retrieval, while partial EduBench trajectories indicate stronger rubric-oriented behavior from coordination-heavy routes. The broader implication is architectural: in tutoring, retrieval should be orchestrated as a conditional capability within an adaptive multi-agent policy.
+We presented a repository-grounded study of adaptive tutoring architectures that compares retrieval-first, orchestration-first, and hybrid policies under shared infrastructure. The key conclusion is architectural and practical: no single design dominates all tutoring regimes. Fully converged TutorEval results favor hybrid conditional retrieval for quality-efficiency balance, while partial EduBench trajectories indicate stronger rubric-oriented behavior from coordination-heavy routes and stronger grounding-alignment from retrieval-heavy routes. For educational AI system design, retrieval should be treated as a conditional capability within adaptive orchestration.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references/references}
