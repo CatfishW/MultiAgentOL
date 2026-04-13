@@ -1,0 +1,31 @@
+\appendix
+
+\section{Benchmark and Dataset Mapping}
+
+This appendix summarizes the benchmark families currently identified for the paper's evaluation blueprint. The list is intentionally split into \emph{education-specific} benchmarks and \emph{transferable} benchmarks so that claim scope remains disciplined.
+
+\subsection{Education-specific benchmarks}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{EduBench} \cite{xu2025edubench}: a broad educational benchmark spanning student- and teacher-facing scenarios with twelve pedagogically oriented dimensions. It is useful for testing whether an architecture improves pedagogical quality and personalization rather than only factual correctness.
+    \item \textbf{TutorEval / LM-Science-Tutor} \cite{chevalier2024sciencetutors}: a science tutoring benchmark with open-book and closed-book conditions. It is especially useful for comparing retrieval-enabled tutoring against more agentic explanation strategies.
+    \item \textbf{ScienceQA} \cite{lu2022scienceqa}: a multimodal science QA benchmark with explanations and lectures. It is useful for explanation quality and grounding, but does not fully capture tutoring dialogue or adaptive pedagogy.
+    \item \textbf{MathTutorBench / TutorBench} \cite{macina2025mathtutorbench,srinivasa2025tutorbench}: tutoring and feedback-oriented benchmarks that place more weight on scaffolding, rubric adherence, or pedagogical quality than on factual QA alone.
+\end{itemize}
+
+\subsection{Transferable benchmarks}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{HotpotQA} \cite{yang2018hotpotqa}: a strong stress test for multi-hop retrieval and evidence justification.
+    \item \textbf{AgentBench} \cite{liu2023agentbench}: a coordination and tool-use stress test for workflow-oriented agents.
+    \item \textbf{SCROLLS / LongBench} \cite{shaham2022scrolls,bai2024longbench2}: long-context stress tests relevant to lecture notes, textbooks, and curriculum-scale materials.
+    \item \textbf{BEIR / FEVER / Wizard of Wikipedia} \cite{thakur2021beir,thorne2018fever,dinan2019wizard}: retrieval, verification, and groundedness benchmarks useful for isolating retrieval quality from pedagogy.
+\end{itemize}
+
+\subsection{Interpretation rule}
+
+Education-specific benchmarks can support claims about pedagogical quality, instructional usefulness, or adaptive support. Transferable benchmarks can support only narrower claims about retrieval depth, evidence justification, long-context reasoning, or coordination. This distinction is essential to prevent the paper from overclaiming educational significance from general-purpose agent benchmarks.
+
+\subsection{Evaluation harnesses and reusable infrastructure}
+
+The current repo search identified reusable infrastructure that could support later empirical work, including MASEval for adapter-based agent evaluation, HAL Harness for benchmark orchestration across agentic tasks, a lightweight RAG evaluation harness for retrieval metrics, and educational grading infrastructure such as Autolab \cite{maseval2026,halharness2026,ragevalharness2026,autolab2024}. These artifacts strengthen the practical feasibility of the proposed evaluation protocol, but they do not by themselves justify educational claims.

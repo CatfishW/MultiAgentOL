@@ -1,0 +1,23 @@
+\section{Analysis and Boundary Conditions}
+
+The current results are most useful when interpreted as boundary-condition evidence rather than as a final leaderboard. They help answer which architectural tensions matter, but they do not justify universal replacement claims.
+
+\subsection{Why the winning architecture changes}
+
+The main reason the winning route changes is that the benchmarks stress different aspects of tutoring. EduBench places heavier weight on pedagogical support, rubric following, and adaptation, which makes coordination quality especially salient. TutorEval still rewards explicit evidence-grounded tutoring over long science passages, so retrieval remains useful there. The interesting result is not that one benchmark prefers retrieval and another sometimes does not. It is that hybrid-fast and non-RAG systems outperform fixed classical RAG in different ways because they let the controller decide when retrieval is necessary and when pedagogical coordination should dominate.
+
+\subsection{Why retrieval still matters}
+
+The repository evidence does not support a retrieval-free conclusion. On TutorEval, the strongest route remains hybrid-fast rather than purely non-RAG tutoring, and the grounded-overlap metric especially favors the retrieval-enabled path. That result reinforces a narrower systems rule: retrieval should remain available when the task requires external evidence, but it should not automatically determine the top-level tutoring policy. In practical terms, the best architecture may be one that first diagnoses whether the student needs evidence, a hint, a rubric-grounded critique, or a scaffolded substep, then invokes retrieval only for the cases that truly need it.
+
+\subsection{Limitations of the current evidence}
+
+Several limitations are load-bearing. First, the results are aligned early-run snapshots rather than full benchmark evaluations, so they support directional evidence rather than definitive leaderboard claims. Second, the benchmarks expose different supervision signals, which means some metrics are more directly comparable than others. Third, grounded-overlap style metrics are architecture-sensitive by construction in non-retrieval runs. These limitations narrow the paper's claims, but they do not nullify the comparison. Instead, they explain why the article combines repository-grounded evidence with a broader evaluation design for future full-scale study.
+
+\subsection{Reviewer-facing ablations and controls}
+
+The most important reviewer objection is fairness: a stronger result must not be explained only by extra compute, more tool calls, or looser runtime budgets. The evaluation design therefore proposes same-backbone comparisons, best-fit deployment comparisons, corpus parity, task parity, and explicit reporting of cost and latency. The most informative ablations are also straightforward. One disables coordination layers inside agentic RAG to test whether retrieval alone explains its gains. Another adds retrieval to the strongest non-RAG multi-agent baseline to test whether grounding rescues coordination failures. A third reduces tool-call budgets to determine whether the observed gains persist when orchestration overhead is constrained.
+
+\subsection{What the current paper can claim}
+
+The strongest defensible claim is not that multi-agent systems replace retrieval in education. It is that educational architecture choice should depend on whether the task is mainly constrained by evidence access or by pedagogical coordination. Classical RAG remains a strong baseline for source-grounded educational assistance. Hybrid-fast and non-RAG tutoring become more attractive when the system must choose among diagnosis, critique, strategy planning, and adaptive support. The contribution of the current paper is therefore a more disciplined comparison frame backed by an initial repository-grounded empirical slice.
