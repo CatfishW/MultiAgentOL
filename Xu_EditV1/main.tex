@@ -1,0 +1,37 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+
+\title{When Should Multi-Agent Systems Replace or Extend Classical Retrieval-Augmented Generation in Education?}
+\author{Draft in Progress}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This study examines when multi-agent large language model systems should replace or extend classical retrieval-augmented generation (RAG) in educational settings. The argument is intentionally narrow: multi-agent systems are not presented as a universal substitute for retrieval, but as a potentially stronger orchestration pattern for educational tasks whose main difficulty lies in coordination rather than document access alone. The paper is framed as a taxonomy and evaluation-protocol blueprint rather than as a completed empirical study. It organizes educational tasks along two axes---knowledge grounding need and pedagogical coordination complexity---and uses that framing to compare classical RAG, agentic RAG, and non-RAG multi-agent systems. The proposed evaluation protocol emphasizes groundedness, pedagogical quality, adaptivity, robustness, cost, and latency under shared budgets and shared task conditions, while the benchmark mapping distinguishes education-facing evidence from transferable mechanism-level stress tests.
+\end{abstract}
+
+\input{sections/introduction}
+\input{sections/related_work}
+\input{sections/framework}
+\input{sections/evaluation}
+\input{sections/discussion}
+\input{sections/conclusion}
+\input{sections/appendix}
+
+\bibliographystyle{plain}
+\bibliography{references/references}
+
+\end{document}

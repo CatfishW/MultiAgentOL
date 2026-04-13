@@ -1,0 +1,29 @@
+\section{Introduction}
+
+Large language model systems for education are frequently characterized as retrieval-augmented generation (RAG) pipelines: an inquiry submitted by a user is matched to an external knowledge source, relevant passages are retrieved, and the model produces a substantiated response. This methodology proves effective, particularly when the task is predominantly factual, citation-sensitive, or directly answerable from curated course materials. Nevertheless, numerous educational tasks extend beyond mere information retrieval. Tutoring, rubric-based feedback, misconception diagnosis, and study planning necessitate multi-step pedagogical coordination, adaptation to the learner's state, and iterative refinement, rather than simple retrieval.
+
+This paper inquires into a more specific issue than the general question of whether multi-agent systems should supplant retrieval-based systems in educational contexts. Instead, it examines the operational conditions under which the classical Retrieval-Augmented Generation (RAG) approach suffices, and when systems requiring more extensive orchestration become justified. Within this framework, retrieval remains significant for tasks grounded in evidence; however, it may not always serve as the most informative top-level abstraction for tasks whose primary difficulty resides in pedagogical coordination. Accordingly, the objective is not to advocate for the universal superiority of multi-agent systems, but rather to delineate the boundary conditions under which retrieval-centric, orchestration-centric, or hybrid configurations are most suitable..
+
+To support this objective, the paper categorizes educational AI tasks along two dimensions: the necessity for knowledge grounding and the complexity of pedagogical coordination. This framework enables the comparison of traditional RAG, agentic RAG, and non-RAG multi-agent systems not as mere interchangeable labels, but as distinct solutions tailored to varying task requirements. A straightforward retrieval process may better serve tasks characterized by minimal coordination and high knowledge grounding. In contrast, educational workflows requiring extensive coordination could warrant more explicit planning, critical assessment, or role specialization.
+
+The paper's contributions are threefold. First, it proposes a task taxonomy that separates retrieval-heavy educational tasks from coordination-heavy ones. Second, it outlines a framework for comparing classical RAG, agentic RAG, and non-RAG multi-agent systems under shared budgets, source corpora, and evaluation protocols. Third, it identifies a benchmark and dataset strategy for evaluating architectural tradeoffs in educational AI without overstating downstream learner outcomes. The goal is not to argue that more agents are always better, but to clarify when orchestration complexity is justified and when classical retrieval-centric pipelines remain the right design choice.
+
+\subsection{Research Questions}
+
+The paper is organized around the following research questions.(Xu Rewrite to 2 RQs)
+
+\begin{enumerate}[label=RQ\arabic*:,leftmargin=*]
+    \item Under what educational task conditions is classical RAG sufficient, and when do agentic or multi-agent systems become justified?
+    \item What evaluation framework can fairly compare classical RAG, agentic RAG, and non-RAG multi-agent systems under shared tasks, budgets, and source corpora?
+\end{enumerate}
+
+\subsection{Hypotheses}
+
+To keep the framing falsifiable, the paper adopts balanced hypotheses rather than a universal superiority claim.
+
+\begin{enumerate}[label=H\arabic*:,leftmargin=*]
+    \item On low-coordination, knowledge-grounded educational tasks, classical RAG will perform comparably to or better than more complex multi-agent systems at lower cost.
+    \item On coordination-heavy educational tasks such as adaptive tutoring, rubric-based critique, and multi-step study planning, agentic or multi-agent systems may outperform classical RAG on pedagogical quality and adaptivity.
+    \item Non-RAG multi-agent systems will underperform retrieval-enabled systems on fact-intensive or citation-sensitive tasks, showing that orchestration alone does not remove the need for grounding.
+    \item A plausible hypothesis for mixed-regime educational tasks is that hybrid systems will prove strongest: multi-agent orchestration with retrieval available as a conditional tool rather than as the sole pipeline pattern.
+\end{enumerate}

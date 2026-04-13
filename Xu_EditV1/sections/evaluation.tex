@@ -1,0 +1,132 @@
+\section{Evaluation Design}
+
+This section defines a prototype evaluation protocol. It serves to translate the taxonomy into a fair comparison among architectural families while keeping educational, mechanical, and cost claims distinct.
+
+The architectural families are operationalized as follows. \emph{Classical RAG} uses a single retrieve-then-generate pipeline with fixed retrieval access and no iterative planning loop. \emph{Agentic RAG} preserves retrieval but allows iterative planning, critique, rerouting, or tool use around the same grounding layer. \emph{Non-RAG multi-agent systems} rely on multiple specialized agents without a dedicated retrieval pipeline as the default controller, though lightweight lookups may still be possible depending on implementation. An optional \emph{single-agent no-RAG} baseline helps isolate retrieval and coordination effects from general model quality. In agentic or multi-agent settings, orchestration can be always-on or selectively invoked for coordination-heavy or ambiguous tasks. In the evaluation, this distinction is a configuration choice within the broader system architecture, not a separate system family.
+
+The evaluation strategy emphasizes architectural fairness, boundary-condition testing, and skepticism about output quality. It identifies influences of retrieval-heavy conditioning, coordination, or pedagogical orchestration, and where none dominate. Different system types—classical RAG, agentic RAG, and non-RAG multi-agent systems—are studied, with an optional non-RAG baseline to separate retrieval and coordination effects. To avoid budget misattribution, token usage, tool calls, and latency metrics are included, with runtime costs discussed alongside accuracy. The study will present proxy and actual costs, estimating expenses based on model calls, token usage, cached tokens, and tool fees. Costs will be presented as averages and medians per example and dialog, including tokens, tool calls, and cycle counts.
+
+Task regimes are separated explicitly: retrieval-heavy tasks (evidence-grounded question answering, factual explanation, citation-aware justification) are evaluated independently from coordination-heavy regimes (adaptive tutoring, misconception diagnosis, lesson sequencing, rubric-based feedback). This separation keeps the analysis from collapsing architectural differences into a single aggregate score. Table~\ref{tab:task-regimes} summarizes the regimes, their dominant evaluation concerns, and the orchestration behaviors they stress.
+
+\begin{table}[t]
+\centering
+\small
+\begingroup
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.26\linewidth}>{\raggedright\arraybackslash}p{0.32\linewidth}>{\raggedright\arraybackslash}p{0.17\linewidth}>{\raggedright\arraybackslash}p{0.2\linewidth}@{}}
+\toprule
+Regime & Representative learning activity & \shortstack[c]{Retrieval\\emphasis} & \shortstack[c]{Coordination\\emphasis} \\
+\midrule
+Evidence-grounded reasoning & Explain why the answer is correct with citations or reference material & High & Moderate (organizing retrieved context) \\
+Rubric-based feedback & Provide diagnostic comments on student writing or code using a rubric & Moderate & High (pedagogical framing, tone, and scaffolding) \\
+Adaptive tutoring & Diagnose misconceptions and offer next-step hints or mini-lessons & Low & High (memory of student state, strategy planning) \\
+Lesson/exercise planning & Produce sequences of learning activities aligned to goals & Low & Very High (task decomposition, role assignment, pacing) \\
+\bottomrule
+\end{tabular}
+\endgroup
+\caption{Task regimes that divide retrieval-heavy experiments from coordination-heavy ones.}
+\label{tab:task-regimes}
+\end{table}
+
+The benchmark shortlist is produced by three filters. Each candidate must (1) map cleanly to one of the regimes in Table~\ref{tab:task-regimes}, (2) allow a contrast between at least two of the architectural families, and (3) surface metrics or human-evaluation protocols that clarify why an architecture performed better in that regime. Benchmarks that reward only short-answer factual correctness are retained only for the retrieval-heavy column; the coordination-heavy column relies on rubric-based feedback, tutoring dialogues, or planning tasks where pedagogy, not just accuracy, drives differentiation. The point is not to maximize benchmark count, but to make each benchmark legible as evidence for a specific kind of claim in the planned study.
+
+The current shortlist is grounded in benchmark families that already expose the contrast this paper cares about and therefore serve as inputs to the proposed protocol rather than as evidence of completed comparisons. EduBench, TutorEval, ScienceQA, MathTutorBench, and TutorBench give coverage over pedagogical quality, explanation, tutoring, and feedback regimes \cite{xu2025edubench,chevalier2024sciencetutors,lu2022scienceqa,macina2025mathtutorbench,srinivasa2025tutorbench}. HotpotQA, SCROLLS, LongBench v2, FEVER, Wizard of Wikipedia, BEIR, and AgentBench provide complementary stress tests for retrieval depth, evidence justification, grounded dialogue, long-context reasoning, retrieval robustness, fact verification, and workflow coordination \cite{yang2018hotpotqa,shaham2022scrolls,bai2024longbench2,thorne2018fever,dinan2019wizard,thakur2021beir,liu2023agentbench}.
+
+Table~\ref{tab:benchmark-map} gives the current benchmark mapping supported by the literature review. The mapping is preparatory: it specifies which benchmark families would justify which claims in a future comparative study. It intentionally separates \emph{education-specific} benchmarks, which can support education-facing claims, from \emph{transferable} benchmarks, which support narrower mechanism-level claims about retrieval, justification, long-context handling, or orchestration.
+
+\begin{table*}[t]
+\centering
+\scriptsize
+\begingroup
+\setlength{\tabcolsep}{3.5pt}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.12\linewidth}>{\raggedright\arraybackslash}p{0.13\linewidth}>{\raggedright\arraybackslash}p{0.18\linewidth}>{\raggedright\arraybackslash}p{0.18\linewidth}>{\raggedright\arraybackslash}p{0.2\linewidth}>{\raggedright\arraybackslash}p{0.15\linewidth}@{}}
+\toprule
+Benchmark & Category & Main task family & Main metrics & Comparison utility & \shortstack[c]{Limitation for\\paper claims} \\
+\midrule
+EduBench & Education-specific & Multi-scenario educational QA, grading, and pedagogical support & 12 dimensions covering adaptation, accuracy, and pedagogy & Compares factual grounding with personalization & Synthetic judges; best suited for educational claims rather than classroom-effect claims \\
+TutorEval / LM-Science-Tutor & Education-specific & Open-book vs. closed-book science tutoring QA & LM-based key-point coverage with open- and closed-book settings & Contrasts retrieval-sensitive tutoring with agentic explanation strategies & Science-specific and evaluator-dependent \\
+ScienceQA & Education-specific & Multimodal science QA with explanations and lecture context & Subject/context accuracy plus explanation scoring & Focuses on explanation quality and grounding within science domains & Not a full tutoring-dialog benchmark \\
+MathTutorBench / TutorBench & Education-specific & Tutoring dialogue that includes scaffolding or rubric-based feedback & Accuracy plus pedagogy/rubric metrics & Highlights coordination-heavy pedagogy and instructional quality & Subject- or rubric-specific; generalization is limited \\
+HotpotQA & Transferable & Multi-hop open-domain QA with supporting facts & Answer EM/F1, supporting fact EM/F1, joint EM/F1 & Stresses retrieval depth and justification in classical vs. agentic retrieval & Supports mechanism claims, not pedagogical claims \\
+AgentBench & Transferable & Tool-using workflow completion and coordination & Task success rates across environments & Emphasizes coordination and tool-use stress testing & Not education-specific; reserve for orchestration claims \\
+SCROLLS / LongBench & Transferable & Long-context reasoning, QA, and summarization & Task-specific accuracy or ROUGE-style metrics & Stress test for long-context retrieval planning & Not pedagogy-specific \\
+BEIR / FEVER / Wizard of Wikipedia & Transferable & Retrieval robustness, fact verification, and grounded dialogue & nDCG/MRR/Recall, FEVER score, grounded-dialog metrics & Isolates retrieval and grounding quality before pedagogical claims & Supports retrieval-focused claims only \\
+\bottomrule
+\end{tabular}
+\endgroup
+\caption{Current benchmark mapping for the proposed evaluation protocol. The table identifies which benchmark families would support which claims in a future study: education-specific benchmarks support educational-usefulness claims, while transferable benchmarks support narrower mechanism-level claims.}
+\label{tab:benchmark-map}
+\end{table*}
+
+Evaluation combines automated metrics, human assessment, and cost analysis. Automated measures assess groundedness, citation density, task completion, and robustness indicators such as failure modes and hallucination rates. Human evaluation focuses on pedagogical quality, including specificity, scaffolding, actionable steps, appropriateness, adaptivity, and rubric critique. Human raters also judge if outputs could influence the next instructional step, emphasizing system outputs over learner results. Claims about learner progress are framed as hypotheses that require longitudinal studies to distinguish output quality from real learning. To improve evaluation, raters should score outputs under architecture-blind conditions with shared rubrics and a calibration phase. Significant disagreement will be preserved to report pedagogical ambiguity transparently.
+
+Metric families are summarized in Table~\ref{tab:metric-families}, which shows that cost, adaptivity, groundedness, and pedagogical quality are tracked separately, so that no single blended score obscures boundary conditions.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{p{0.25\linewidth}p{0.6\linewidth}}
+\toprule
+Metric family & Reporting focus \\
+\midrule
+Groundedness & Citation recall/precision, hallucination counts, retrieval coverage, and alignment between retrieved snippets and claims. \\
+Pedagogical quality & Human ratings for specificity, scaffolding, level alignment, clarity of next steps, and sensitivity to learner state. \\
+Adaptivity & Evidence of maintaining student context, handling follow-up prompts, and adjusting to rubrics or learner models mid-dialogue. \\
+Cost and latency & Token usage, tool call counts, wall-clock latency per turn, and any orchestration overhead (planner cycles, critique rounds). \\
+Robustness & Failure-mode counts, rerun stability, and robustness to input perturbations (e.g., misspelled prompts, conflicting goals). \\
+\bottomrule
+\end{tabular}
+\caption{Metric families that keep groundedness, pedagogical quality, adaptivity, and cost separate.}
+\label{tab:metric-families}
+\end{table}
+
+Table~\ref{tab:comparison-families} revisits the baseline families, clarifying that classical RAG remains the default retrieval-heavy pipeline, agentic RAG adds orchestration around the same retrieval layer, and non-RAG multi-agent systems rely on coordination rather than retrieval. The optional single-agent no-RAG baseline provides an additional control point for understanding whether retrieval or coordination explains gains.
+
+\begin{table}[t]
+\centering
+\small
+\begingroup
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.26\linewidth}>{\raggedright\arraybackslash}p{0.18\linewidth}>{\raggedright\arraybackslash}p{0.25\linewidth}>{\raggedright\arraybackslash}p{0.27\linewidth}@{}}
+\toprule
+Family & Retrieval & Orchestration style & Main purpose \\
+\midrule
+Classical RAG & Enabled & Single retrieve-then-generate pipeline & Serves as a strong baseline for evidence-grounded tasks \\
+Agentic RAG & Enabled & Iterative planning, critique, and tool-use control loops & Tests whether orchestration around retrieval improves grounding \\
+Non-RAG multi-agent & Disabled or minimal & Multiple specialized agents coordinating their reasoning & Probes whether coordination alone can handle coordination-heavy educational tasks \\
+Single-agent no-RAG & Disabled & Single model without retrieval orchestration & Provides a sanity anchor for interpreting retrieval and coordination gains \\
+\bottomrule
+\end{tabular}
+\endgroup
+\caption{Architectural comparison families for the proposed evaluation.}
+\label{tab:comparison-families}
+\end{table}
+
+\subsection{Benchmark Selection Rationale}
+
+We document benchmark filters to trace represented regimes. The shortlist notes dataset limitations such as narrow domain coverage or question templates, and the exact prompts used to ensure task parity. If some regimes lack robust public benchmarks, we describe synthetic or controlled setups, such as pairing retrieval prompts with tutoring instructions, to highlight boundary conditions.
+
+One important rule governs interpretation: education-specific benchmarks support claims about pedagogical usefulness or instructional quality, while transferable benchmarks support only narrower claims about retrieval, evidence justification, long-context handling, or orchestration. This prevents the study from overextending general agent benchmarks into classroom claims they cannot support, even when those general benchmarks are informative about the mechanisms behind agentic retrieval or multi-agent coordination \cite{thakur2021beir,liu2023agentbench}.
+
+\subsection{Fairness Controls}
+
+To prove that comparisons are fair. The following controls are in place:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Baseline strength:} the classical RAG condition uses well-tuned retrieval depths, reranking, and answer fusion so it cannot be dismissed as a straw man.
+    \item \textbf{Budget transparency:} token usage, tool calls, planner or critic cycles, and per-turn latency are logged for every architectural family, making it possible to ask whether a win is due to more compute or fundamentally better orchestration.
+    \item \textbf{Corpus parity:} whenever retrieval is available, every system sees the same document set and obeys identical indexing, chunking, and retrieval-budget policies.
+    \item \textbf{Task parity:} each system receives the same prompt wording, student profile metadata, and rubric anchors when applicable, so differences reflect architecture rather than prompt engineering.
+    \item \textbf{Human evaluation rigor:} annotator instructions differentiate between output quality and learner-outcome claims, and inter-rater calibration focuses on pedagogical judgments rather than superficial fluency.
+    \item \textbf{Metric separation:} groundedness, pedagogical quality, adaptivity, cost, and robustness are reported independently, preventing a ``one number to rule them all'' interpretation.
+    \item \textbf{Model-capability parity:} whenever feasible, compare classical RAG, agentic RAG, and non-RAG multi-agent systems on the same backbone model, same context window, and same decoding limits. (Xu add controls 1 of 3)
+    \item \textbf{Best-fit comparison:} in addition to same-backbone comparisons, report a best-fit setting where each architecture uses its most compatible / strongest model, interpreted as a practical deployment comparison rather than a pure architecture comparison. (Xu add controls 2 of 3)
+    \item \textbf{Deployment transparency:} report hardware footprint, peak memory / VRAM when measurable, max concurrent calls, long-context dependence, tool-interface dependence. (Xu add controls 3 of 3)
+    
+    
+\end{itemize}
+
+\subsection{Reviewer Objections and Ablations}
+
+We anticipate several predictable concerns and have planned ablations to address them. One ablation disables the coordination layers in agentic RAG to test whether retrieval followed by orchestration yields the same benefits as orchestration followed by retrieval. Another introduces retrieval to the strongest non-RAG multi-agent baseline to see if grounding alone can prevent coordination failures. A third reduces tool-call budgets to verify that the reported successes are not just due to unlimited computing. These ablations serve as boundary tests: if an orchestrated agentic RAG matches classical RAG on evidence-heavy tasks, the protocol measures the cost difference; if non-RAG multi-agent systems fail on citation-sensitive tasks, the protocol documents those failures. Mixed or negative results highlight domains where classical RAG may be preferable. We also consider model dependence: if an agentic setup remains competitive only with a stronger or less practical model, it's a boundary condition, not an orchestration improvement. 

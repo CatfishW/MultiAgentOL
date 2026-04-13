@@ -1,0 +1,30 @@
+\section{Task Framing}
+
+We define educational AI tasks along two axes: \emph{knowledge grounding need} and \emph{pedagogical coordination complexity}. The first captures the extent to which success depends on retrieving accurate, task-relevant evidence from an external corpus or tool. The second captures the extent to which success depends on decomposition, adaptive sequencing, feedback refinement, critique, learner modeling, or role-specialized reasoning. The value of this framework is not that it predicts winners with certainty, but that it forces architectural comparisons to specify which kind of difficulty is actually being tested.
+
+Under this framing, classical RAG is expected to remain strong in the low-coordination, high-grounding regime, such as factual question answering over course materials or evidence-grounded explanation with limited personalization. As pedagogical coordination complexity increases, however, systems may benefit from more explicit orchestration. Agentic RAG represents an intermediate design in which retrieval remains available but is no longer the sole driver of system behavior. Non-RAG multi-agent systems test a different hypothesis: whether orchestration alone can support some educational tasks without a dedicated retrieval pipeline. These are working hypotheses rather than settled conclusions, and the evaluation design is intended to clarify where each architectural family succeeds or fails.
+
+The framework also supports explicit role definitions, including planner, retriever, tutor, critic, and rubric-checker. Not every task requires every role; an important question is which forms of specialization matter under which task regimes, and what tradeoffs they introduce in cost, latency, and failure modes.
+
+Table~\ref{tab:task-taxonomy} summarizes the paper's working taxonomy. The table is intended as an operational hypothesis to be later stress-tested against benchmark results; it does not constitute an assertion that any particular architectural family has already achieved dominance within a given regime.
+
+\begin{table}[t]
+\centering
+\small
+\begingroup
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.26\linewidth}>{\raggedright\arraybackslash}p{0.2\linewidth}>{\raggedright\arraybackslash}p{0.2\linewidth}>{\raggedright\arraybackslash}p{0.3\linewidth}@{}}
+\toprule
+Task regime & Grounding need & \shortstack[c]{Coordination\\complexity} & \shortstack[c]{Hypothesized strong\\architecture} \\
+\midrule
+Evidence-grounded educational QA & High & Low & Classical RAG \\
+Source-grounded explanation & High & Low to medium & Classical or agentic RAG \\
+Rubric-based feedback & Medium & Medium to high & Agentic RAG or multi-agent orchestration \\
+Adaptive tutoring dialogue & Low to medium & High & Multi-agent orchestration or agentic RAG \\
+Lesson or study planning & Low to medium & High & Multi-agent orchestration \\
+\bottomrule
+\end{tabular}
+\endgroup
+\caption{Working task taxonomy for comparing retrieval-centric and coordination-centric educational AI architectures. The labels identify hypotheses to be tested against benchmark evidence rather than completed findings.}
+\label{tab:task-taxonomy}
+\end{table}
