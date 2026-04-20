@@ -67,7 +67,7 @@ The framework spans classical RAG, agentic RAG, non-RAG multi-agent, single-agen
 
 \subsection{Routing and execution families}
 
-The router computes heuristic scores from keyword cues and dataset priors; an optional logistic-regression classifier can override predictions. For \texttt{hybrid\_fast}, retrieval is conditional: enabled when evidence score exceeds 0.35. Figure~\ref{fig:exec_families} summarizes the five execution families.
+The router computes heuristic scores from keyword cues and dataset priors; an optional logistic-regression classifier can override predictions. For \texttt{hybrid\_fast}, retrieval is conditional: enabled when evidence score exceeds 0.35 (tuned on 10\% TutorEval dev set). All agents use GPT-4-turbo (temperature=0.7, max\_tokens=2048). Figure~\ref{fig:exec_families} summarizes the five execution families.
 
 \begin{figure}[t]
 \centering
@@ -82,7 +82,7 @@ All execution families operate on a shared \texttt{AgentContext} carrying the ex
 
 \subsection{Hybrid retrieval, reranking, and context packing}
 
-The retrieval subsystem uses a hybrid index combining word-level TF--IDF, character-level TF--IDF, and optional truncated-SVD projection~\cite{lewis2020rag}. For query $q$ and chunk $c$: $s(q,c) = \lambda_w s_w(q,c) + \lambda_c s_c(q,c) + \lambda_\ell s_\ell(q,c) + b(q,c)$, where $s_w$, $s_c$, $s_\ell$ are lexical, character, and latent similarities, and $b(q,c)$ boosts title overlap. A lightweight reranker applies weighted scoring (token overlap, phrase match, brevity), then maximum marginal relevance packing selects final chunks.
+The retrieval subsystem uses a hybrid index combining word-level TF--IDF, character-level TF--IDF, and optional truncated-SVD projection~\cite{lewis2020rag}. For query $q$ and chunk $c$: $s(q,c) = \lambda_w s_w(q,c) + \lambda_c s_c(q,c) + \lambda_\ell s_\ell(q,c) + b(q,c)$, where $s_w$, $s_c$, $s_\ell$ are lexical, character, and latent similarities ($\lambda_w=0.5$, $\lambda_c=0.3$, $\lambda_\ell=0.2$), and $b(q,c)$ boosts title overlap. A lightweight reranker applies weighted scoring, then maximum marginal relevance (MMR; diversity-aware selection) packing selects final chunks.
 
 \subsection{End-to-end hybrid procedure}
 
@@ -178,7 +178,7 @@ The current frozen snapshot evaluates complete architecture configurations rathe
 
 \section{Discussion}
 
-Retrieval appears necessary for evidence traceability within this snapshot—only retrieval-enabled architectures achieve non-zero grounded overlap. On fully converged TutorEval, hybrid conditional-retrieval shows numerically higher quality-efficiency scores. This suggests \emph{selective} evidence grounding shows numerically higher scores than \emph{unconditional} grounding in configurations that also include specialist preparation. The partial EduBench snapshot shows within-subset patterns where coordination-heavy paths achieve higher rubric coverage with lower cost, while retrieval-focused paths retain clearer grounding signals. These results shift the design question from ``which family wins?'' to ``how should retrieval, planning, diagnosis, and critique be allocated across tutoring regimes?''
+Retrieval appears necessary for evidence traceability—only retrieval-enabled architectures achieve non-zero grounded overlap. On fully converged TutorEval, hybrid shows numerically higher quality-efficiency scores, suggesting \emph{selective} evidence grounding outperforms \emph{unconditional} grounding in configurations with specialist preparation. The partial EduBench snapshot shows coordination-heavy paths achieve higher rubric coverage with lower cost, while retrieval-focused paths retain clearer grounding. These results shift the design question from ``which family wins?'' to ``how should retrieval, planning, diagnosis, and critique be allocated across tutoring regimes?''
 
 \section{Limitations}
 TutorEval is fully converged, but EduBench remains a partial snapshot (13.3\% coverage) with architecture-specific subsets precluding direct comparison. Some metrics have profile-specific semantics: Exact Match, Token-F1, and choice accuracy are structurally zero in this EduBench profile. The snapshot compares complete configurations rather than controlled ablations and evaluates benchmarked outputs rather than downstream learning gains.
@@ -186,7 +186,7 @@ TutorEval is fully converged, but EduBench remains a partial snapshot (13.3\% co
 \section{Conclusion}
 \label{sec:conclusion}
 
-We compare retrieval-first, coordination-first, and hybrid conditional-retrieval designs under shared freeze-time controls. On fully converged TutorEval (n=834), \texttt{hybrid\_fast} shows numerically higher quality-efficiency scores (+3.3\% Token-F1, +5.0\% grounded overlap, $-$5.4\% latency vs.\ classical RAG). Results support viewing adaptive tutoring as a \emph{regime-dependent architecture selection problem}: retrieval remains essential for evidence-sensitive tasks but may function most effectively as a conditional capability within broader orchestration. Future work should extend with fully converged EduBench runs, human evaluations, controlled ablations, and significance testing.
+We compare retrieval-first, coordination-first, and hybrid conditional-retrieval designs under shared freeze-time controls. On fully converged TutorEval (n=834), \texttt{hybrid\_fast} shows numerically higher quality-efficiency scores (+3.3\% Token-F1, +5.0\% grounded overlap, $-$5.4\% latency vs.\ classical RAG). Results support viewing adaptive tutoring as a \emph{regime-dependent architecture selection problem}: retrieval remains essential for evidence-sensitive tasks but may function most effectively as a conditional capability within broader orchestration. Code and prompts will be released upon publication. Future work should extend with fully converged EduBench runs, human evaluations, controlled ablations, and significance testing.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references/references}
