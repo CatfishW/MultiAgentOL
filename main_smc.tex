@@ -67,7 +67,7 @@ The framework spans classical RAG, agentic RAG, non-RAG multi-agent, single-agen
 
 \subsection{Routing and execution families}
 
-The router computes heuristic scores from keyword cues and dataset priors; an optional logistic-regression classifier can override predictions. For \texttt{hybrid\_fast}, retrieval is conditional: enabled when evidence score exceeds 0.35 (tuned on 10\% TutorEval dev set). All agents use GPT-4-turbo (temperature=0.7, max\_tokens=2048). Figure~\ref{fig:exec_families} summarizes the five execution families.
+The router computes heuristic scores from keyword cues and dataset priors; an optional logistic-regression classifier can override predictions. For \texttt{hybrid\_fast}, retrieval is conditional: enabled when evidence score exceeds 0.52. All agents use Qwen3.5-4B with thinking budget of 64 tokens. Figure~\ref{fig:exec_families} summarizes the five execution families.
 
 \begin{figure}[t]
 \centering
@@ -82,7 +82,7 @@ All execution families operate on a shared \texttt{AgentContext} carrying the ex
 
 \subsection{Hybrid retrieval, reranking, and context packing}
 
-The retrieval subsystem uses a hybrid index combining word-level TF--IDF, character-level TF--IDF, and optional truncated-SVD projection~\cite{lewis2020rag}. For query $q$ and chunk $c$: $s(q,c) = \lambda_w s_w(q,c) + \lambda_c s_c(q,c) + \lambda_\ell s_\ell(q,c) + b(q,c)$, where $s_w$, $s_c$, $s_\ell$ are lexical, character, and latent similarities ($\lambda_w=0.5$, $\lambda_c=0.3$, $\lambda_\ell=0.2$), and $b(q,c)$ boosts title overlap. A lightweight reranker applies weighted scoring, then maximum marginal relevance (MMR; diversity-aware selection) packing selects final chunks.
+The retrieval subsystem uses a hybrid index combining word-level TF--IDF, character-level TF--IDF, and optional truncated-SVD projection~\cite{lewis2020rag}. For query $q$ and chunk $c$: $s(q,c) = \lambda_w s_w(q,c) + \lambda_c s_c(q,c) + \lambda_\ell s_\ell(q,c) + b(q,c)$, where $s_w$, $s_c$, $s_\ell$ are lexical, character, and latent similarities ($\lambda_w=0.58$, $\lambda_c=0.17$, $\lambda_\ell=0.25$), and $b(q,c)$ boosts title overlap. A lightweight reranker applies weighted scoring, then maximum marginal relevance (MMR; diversity-aware selection, $\lambda=0.68$) packing selects final chunks.
 
 \subsection{End-to-end hybrid procedure}
 
