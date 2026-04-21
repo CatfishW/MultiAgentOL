@@ -69,7 +69,7 @@ The framework encompasses five execution families: classical RAG, agentic RAG, n
 
 \subsection{Routing and execution families}
 
-The router computes heuristic scores from keyword cues and dataset priors; an optional logistic-regression classifier can override predictions. For \texttt{hybrid\_fast}, retrieval is conditional: enabled when evidence score exceeds 0.52. A fallback retrieval attempt triggers when no chunks were obtained but evidence score remains $\geq$0.45. All agents use Qwen3.5-4B with thinking budget of 64 tokens. Figure~\ref{fig:exec_families} summarizes the five execution families.
+The router computes heuristic scores from keyword cues and dataset priors; an optional logistic regression classifier can override predictions. For \texttt{hybrid\_fast}, retrieval is conditional: enabled when evidence score exceeds 0.52. A fallback retrieval attempt triggers when no chunks were obtained but evidence score remains $\geq$0.45. All agents use Qwen3.5-4B with thinking budget of 64 tokens. Figure~\ref{fig:exec_families} summarizes the five execution families.
 
 \begin{figure}[t]
 \centering
