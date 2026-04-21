@@ -63,7 +63,9 @@ Taken together, prior work gives us strong ingredients---educational benchmarks 
 
 \section{Methodology}
 
-The framework spans classical RAG, agentic RAG, non-RAG multi-agent, single-agent no-RAG, and a conditional-retrieval hybrid path. A lightweight router selects execution family and flags (Figure~\ref{fig:exec_families}). The frozen comparison uses four configurations with comparable outputs; \texttt{agentic\_rag} is excluded. The central design is \emph{controlled adaptivity}: use retrieval only when an instance needs external evidence.
+We now describe our framework design and experimental methodology.
+
+The framework encompasses five execution families: classical RAG, agentic RAG, non-RAG multi-agent, single-agent baseline, and our proposed conditional-retrieval hybrid. A lightweight router selects execution family and flags (Figure~\ref{fig:exec_families}). The frozen comparison uses four configurations with comparable outputs; \texttt{agentic\_rag} is excluded. The central design is \emph{controlled adaptivity}: use retrieval only when an instance needs external evidence.
 
 \subsection{Routing and execution families}
 
@@ -97,7 +99,7 @@ Figure~\ref{fig:framework} illustrates the \texttt{hybrid\_fast} pipeline. The r
 
 \subsection{Evaluation}
 
-Metric handling is profile-aware. Shared metrics include exact match, token-level F1, choice accuracy where applicable, citation coverage, grounded overlap, rubric coverage, adaptivity, retrieval-document recall, latency, and agent count. EduBench additionally tracks JSON-format compliance and score alignment against consensus-style reference scores extracted during dataset adaptation. Grounded overlap measures token overlap between the final answer and retrieved chunks; it is structurally zero when retrieval is disabled, making it unsuitable for comparing retrieval vs.\ non-retrieval architectures. For retrieval-enabled systems, it indicates whether generated text references the evidence base.
+Metric handling is profile-aware. Shared metrics include exact match, token-level F1, choice accuracy where applicable, citation coverage, grounded overlap, rubric coverage, adaptivity, retrieval-document recall, latency, and agent count. EduBench additionally tracks JSON-format compliance and score alignment against consensus-style reference scores extracted during dataset adaptation. Grounded overlap measures token overlap between the final answer and retrieved chunks. It is structurally zero when retrieval is disabled, making it unsuitable for comparing retrieval vs.\ non-retrieval architectures. For retrieval-enabled systems, it indicates whether generated text references the evidence base.
 
 \section{Experimental Results}
 
@@ -178,7 +180,7 @@ The current frozen snapshot evaluates complete architecture configurations rathe
 
 \section{Discussion}
 
-Retrieval is necessary for evidence traceability—only retrieval-enabled architectures achieve non-zero grounded overlap. On fully converged TutorEval (n=834, identical examples), hybrid achieves higher quality-efficiency scores, demonstrating that \emph{selective} evidence grounding outperforms \emph{unconditional} grounding in configurations with specialist preparation. The partial EduBench snapshot cannot support cross-architecture comparisons due to non-overlapping subsets, but within-subset patterns show coordination-heavy paths at comparable rubric coverage (0.9553 vs 0.9541, difference 0.13\%) with lower cost. These results demonstrate that the design question is not ``which family wins?'' but rather ``how should retrieval, planning, diagnosis, and critique be allocated across tutoring regimes?''
+These results reveal several insights about architecture selection for adaptive tutoring. Retrieval is necessary for evidence traceability—only retrieval-enabled architectures achieve non-zero grounded overlap. On fully converged TutorEval (n=834, identical examples), hybrid achieves higher quality-efficiency scores, demonstrating that \emph{selective} evidence grounding outperforms \emph{unconditional} grounding in configurations with specialist preparation. The partial EduBench snapshot cannot support cross-architecture comparisons due to non-overlapping subsets, but within-subset patterns show coordination-heavy paths at comparable rubric coverage (0.9553 vs 0.9541, difference 0.13\%) with lower cost. These results demonstrate that the design question is not ``which family wins?'' but rather ``how should retrieval, planning, diagnosis, and critique be allocated across tutoring regimes?''
 
 \section{Limitations}
 TutorEval is fully converged, but EduBench remains a partial snapshot (13.3\% coverage) with architecture-specific subsets precluding direct comparison. Architectures processed non-overlapping EduBench subsets, making cross-architecture quality comparisons invalid for that benchmark. Some metrics have profile-specific semantics: Exact Match, Token-F1, and choice accuracy are structurally zero in this EduBench profile.
