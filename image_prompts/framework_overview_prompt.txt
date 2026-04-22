@@ -1,0 +1,15 @@
+A detailed, high-level system architecture flowchart for an AI tutoring framework called "Hybrid Fast". The flowchart should trace the end-to-end pipeline from a student's input query to the final tutor response.
+
+Key components and flow:
+1. The entry point is a "Student Query" block.
+2. An arrow leads to a "Lightweight Router" component.
+3. The Router splits into two main sections:
+   - Upper section: Three parallel blocks labeled "Planner", "Diagnoser", and "Rubric Agent" representing specialist preparation. Solid arrows point from the Router to these.
+   - Lower section: A block labeled "Hybrid Retrieval Stack" (TF-IDF + Latent Index + Reranker). A dashed arrow points to this from the Router, labeled "require_retrieval=True".
+4. Both the specialist outputs and the retrieval outputs converge into a shared "AgentContext" memory bus or node.
+5. An arrow from the AgentContext leads to the "Tutor Agent" block, which generates the draft response.
+6. A dashed arrow points from the Tutor Agent to an optional "Critic Agent" for revision, looping back.
+7. A dashed fallback arrow loops from the Tutor back to the Retrieval Stack, labeled "Fallback (score >= 0.45)".
+8. The final output is "Final Response".
+
+Style: Professional academic flowchart, modern minimalist UI/UX design style, clear distinct arrows. Solid arrows for always-active paths and dashed arrows for conditional paths. Use a clean color palette suitable for a scientific paper, perhaps using a light gray background with blue and teal accents. Vector graphics style, precise and structured.

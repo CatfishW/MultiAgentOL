@@ -1,0 +1,25 @@
+A publication-quality academic scatter plot or Pareto-style tradeoff figure showing the quality-latency geometry of four AI tutoring architectures across two datasets. White background, minimalist IEEE-paper aesthetic, vector style, crisp typography, no decorative clutter.
+
+Figure intent:
+- Visualize the quality-versus-latency tradeoff for four architectures: "classical_rag", "hybrid_fast", "non_rag_multi_agent", and "single_agent_no_rag".
+- Show two dataset groups: "TutorEval" and "EduBench".
+- TutorEval points should visually indicate converged endpoints and be more visually prominent or solid.
+- EduBench points should visually indicate partial-trajectory snapshots and be distinguished by lighter opacity, dashed outlines, or a note in the legend.
+
+Axes:
+- Horizontal axis: "Latency (ms)".
+- Vertical axis: "Quality score" or a clearly labeled composite educational quality measure.
+- The upper-left region should visually suggest the preferred operating zone: higher quality, lower latency.
+
+Styling details:
+- Use one consistent marker shape or color family per architecture.
+- Use a second visual encoding for dataset identity, such as filled vs hollow markers, or solid vs translucent markers.
+- Highlight "hybrid_fast" as the proposed method using a stronger accent color such as teal or blue-green.
+- Use muted academic colors for the baselines: gray, dark blue, and orange.
+- Add a clean legend that distinguishes architecture and dataset status.
+- Add a subtle annotation that TutorEval points are directly comparable and EduBench points are partial non-overlapping subsets.
+
+Overall mood:
+- Clean, precise, scientific, publication-ready.
+- Suitable for IEEE SMC paper figures.
+- Vector infographic aesthetic, not hand-drawn, not 3D.

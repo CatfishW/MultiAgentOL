@@ -1,0 +1,10 @@
+A clean, modern, academic-style block diagram illustrating four different execution families of an AI educational tutoring system. The diagram should be organized into four distinct panels or columns: "Classical RAG", "Agentic RAG", "Non-RAG Multi-Agent", and "Hybrid Fast" (highlighted as the proposed method).
+
+The elements in the diagram should be simple geometric shapes (rectangles for modules/agents). Use solid outlines for always-active modules and dashed outlines for optional or conditional modules.
+
+- "Classical RAG" panel: Flow from a User Query directly to a Retriever, then to a Tutor model.
+- "Agentic RAG" panel: Flow from a User Query to a set of Agentic Planners, then to a Retriever, then to a Tutor model.
+- "Non-RAG Multi-Agent" panel: Flow from a User Query to a group of multiple parallel specialists (Planner, Diagnoser, Rubric), which feed directly into a Tutor model, with no Retriever.
+- "Hybrid Fast" (Proposed) panel: Flow from a User Query to a Router. The Router sends the query to parallel specialists (Planner, Diagnoser, Rubric) and has a conditional path (dashed line) to a Retriever. Both feed into the Tutor model, which has a dashed loop back from an optional Critic model, and a dashed fallback loop to the Retriever.
+
+Style: Flat vector illustration, clean lines, minimalist, high contrast, academic color palette (blues, grays, and a distinct highlight color like orange or teal for the Hybrid Fast path). White background. Text should be legible if generated.
