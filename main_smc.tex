@@ -64,7 +64,24 @@ Our work sits at the intersection of three lines: educational tutoring benchmark
 Recent educational benchmarks move the evaluation target beyond answer correctness toward pedagogy, adaptivity, and instructional safety. EduBench spans nine tutoring scenarios and scores educational utility dimensions such as adaptation and pedagogical application~\cite{xu2025edubench}. TutorEval operationalizes chapter-grounded science tutoring with keypoint-based evaluation~\cite{chevalier2024sciencetutors,lmsciencetutorrepo}. MathTutorBench, TutorBench, and related evaluation frameworks sharpen open-ended pedagogical assessment and tutor-specific safety~\cite{macina2025mathtutorbench,srinivasa2025tutorbench,maurya2025aitutoreval,borchers2025adaptivity,hazra2026safetutors,shi2026kmpbench}. These benchmarks crystallize the gap our paper targets: a tutor can be factually correct yet still tutor poorly by giving the wrong level of help, neglecting rubric criteria, or responding unsafely, and optimizing for answer correctness alone will not recover that behavior.
 
 \textbf{RAG and agentic retrieval control.}
-Classical RAG conditions generation on retrieved passages~\cite{lewis2020rag} and is a strong default for fact-seeking QA. Subsequent work shows that retrieval quality depends on the \emph{control policy} around it: Self-RAG trains reflection tokens that decide when to retrieve and when to critique an answer~\cite{asai2024selfrag}; CRAG adds a lightweight retrieval evaluator that triggers corrective actions when retrieved evidence is poor~\cite{yan2024crag}; and adaptive RAG variants have been studied for short-form open-domain QA~\cite{zhang2024retrievalqa}. A parallel evaluation literature diagnoses retrieval-heavy systems through answer quality, citation behavior, and benchmarking infrastructure~\cite{chen2023benchmarkingrag,ru2024ragchecker,friel2024ragbench,rau2024bergen}. In tutoring, however, many queries are dominated by diagnosis, hinting, or rubric-following rather than evidence-seeking, and long educational contexts can make naive ``retrieve by default'' behavior brittle~\cite{bai2024longbench2,liu2024lostmiddle}. Unlike Self-RAG's learned reflection tokens or CRAG's retrieval evaluator, our router is a training-free, \emph{sub-model-call} heuristic over lexical cues and dataset priors (\S\ref{sec:methodology}), which keeps latency and token costs predictable in resource-constrained tutoring deployments---a positioning orthogonal to, rather than competing with, learned adaptive RAG.
+Classical RAG conditions generation on retrieved passages~\cite{lewis2020rag} and is a strong default for fact-seeking QA. Subsequent work shows that retrieval quality depends on the \emph{control policy} around it: Self-RAG trains reflection tokens that decide when to retrieve and when to critique an answer~\cite{asai2024selfrag}; CRAG adds a lightweight retrieval evaluator that triggers corrective actions when retrieved evidence is poor~\cite{yan2024crag}; and adaptive RAG variants have been studied for short-form open-domain QA~\cite{zhang2024retrievalqa}. A parallel evaluation literature diagnoses retrieval-heavy systems through answer quality, citation behavior, and benchmarking infrastructure~\cite{chen2023benchmarkingrag,ru2024ragchecker,friel2024ragbench,rau2024bergen}. In tutoring, however, many queries are dominated by diagnosis, hinting, or rubric-following rather than evidence-seeking, and long educational contexts can make naive ``retrieve by default'' behavior brittle~\cite{bai2024longbench2,liu2024lostmiddle}. Table~\ref{tab:positioning} summarizes how our hybrid gate relates to these mechanisms: it is training-free like classical RAG, activates per example like Self-RAG and CRAG, but---unlike those---is wrapped in a tutoring-specific supervisory policy that coordinates rubric, diagnosis, and critique agents alongside retrieval.
+
+\begin{table}[t]
+\caption{Positioning of the proposed hybrid gate relative to RAG control policies. TF: training-free gate. TSC: tutoring-specific control (rubric/diagnosis/critic in the loop). PEA: per-example activation of retrieval. SUP: supervisory-controller framing. \checkmark = yes, $\sim$ = partial, $\times$ = no.}
+\label{tab:positioning}
+\centering
+\scriptsize
+\begin{tabular}{lcccc}
+\toprule
+Method & TF & TSC & PEA & SUP \\
+\midrule
+Classical RAG~\cite{lewis2020rag} & \checkmark & $\times$ & $\times$ & $\times$ \\
+Self-RAG~\cite{asai2024selfrag} & $\times$ & $\times$ & \checkmark & $\times$ \\
+CRAG~\cite{yan2024crag} & $\sim$ & $\times$ & \checkmark & $\times$ \\
+Hybrid (ours) & \checkmark & \checkmark & \checkmark & \checkmark \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \textbf{Multi-agent tutoring and coordination-heavy control.}
 A broad multi-agent literature argues that explicit role specialization helps with planning, critique, and decomposition in complex workflows~\cite{liu2023agentbench,wu2024autogen,li2023camel,hong2024metagpt}. In retrieval settings, collaborative agents have also been proposed to improve search and reasoning over evidence~\cite{nguyen2025marag,radeva2025coordination}. Closer to our problem, recent tutoring systems including AgentTutor, IntelliCode, and CogEvo-Edu instantiate specialized educational roles such as learner modeling, multi-turn teaching, and collaborative tutoring~\cite{liu2026agenttutor,jones2026intellicode,wu2025cogevoedu}. These designs motivate tutoring-specific orchestration, but they do not isolate the architectural question we study: \emph{when} should evidence retrieval be the primary controller, and when should it remain a subordinate capability inside a broader tutoring policy?
@@ -122,7 +139,7 @@ The retrieval stack is intentionally lightweight. A hybrid index combines word-l
 
 \subsection{Evaluation protocol}
 
-Metric handling is \emph{profile-aware} and enforced in code. Shared metrics include composite score, token-level F1, rubric coverage, latency, token cost, and retrieval-sensitive grounding signals; EduBench additionally reports its 12-dimension educational rubric and score alignment, while TutorEval reports tutor-hit and chapter-grounded tutoring quality. When a metric is profile-inapplicable, we omit it from the headline comparison rather than forcing structural zeros into the main table.
+Metric handling is \emph{profile-aware} and enforced in code. Shared metrics include composite score, token-level F1, rubric coverage, latency, token cost, and retrieval-sensitive grounding signals; EduBench additionally reports its 12-dimension educational rubric and score alignment, while TutorEval reports tutor-hit and chapter-grounded tutoring quality. When a metric is profile-inapplicable, we omit it from the headline comparison rather than forcing structural zeros into the main table. To avoid structurally favoring retrieval-enabled pipelines, we also report a retrieval-agnostic grounding proxy, \texttt{corpus\_factuality}, that scores answer sentences against the shared corpus index regardless of whether the pipeline invoked retrieval; it is populated for every architecture using the same index.
 
 \section{Experimental Results}
 \label{sec:results}
@@ -169,6 +186,11 @@ single\_agent\_no\_rag & 0.212 & -- & 0.377 & -- & 0.709 & 0.153 & 19050.4 & 295
 }
 \end{table*}
 
+\subsection{Planned controlled experiments}
+\label{sec:planned}
+
+To stress-test rather than rescue the hybrid mechanism, we commit to a fixed set of controlled experiments, each runnable from the released code via a named CLI entry point (\texttt{docs/EXPERIMENTS.md}). \textbf{(A)} Hybrid without the conditional retrieval gate isolates the gating contribution. \textbf{(B)} Non-RAG multi-agent with retrieval enabled separates grounding from coordination. \textbf{(C)} Hybrid without the critic isolates post-hoc revision. \textbf{(D)} Router heuristic-only vs.\ classifier-only separates rule-based from learned routing. \textbf{(E)} Sensitivity of the evidence threshold $\tau_e\in[0.30,0.55]$ via \texttt{run\_threshold\_sweep.py}. Statistical rigor: paired bootstrap CIs and permutation tests on TutorEval deltas via \texttt{compute\_paired\_stats.py}; human evaluation (correctness, pedagogy, safety, adaptivity on a $4\times25$ stratified sample with three raters) via \texttt{export\_human\_eval\_pack.py}, including an inter-annotator-agreement helper.
+
 \section{Discussion}
 
 Three observations structure the take-away. \emph{First}, the TutorEval endpoint favors the hybrid most clearly: it leads on composite, Token-F1, tutor-hit rate, and rubric coverage while also reducing latency and tokens relative to classical RAG. \emph{Second}, the synchronized EduBench snapshot shifts the story from retrieval alone to pedagogical coordination: hybrid and non-RAG multi-agent tie on the headline educational scores, while hybrid retains a modest speed and rubric edge. \emph{Third}, retrieval-first control is not the strongest default policy: classical RAG remains competitive on EduAlign, but it is slower and materially weaker on composite and rubric than the best coordination-heavy routes.
@@ -178,7 +200,7 @@ These patterns argue for treating adaptive tutoring as an architecture-selection
 \section{Limitations}
 \label{sec:limitations}
 
-We emphasize three constraints. \textbf{(i) Snapshot EduBench reporting.} TutorEval is fully complete, but EduBench is summarized from a synchronized live snapshot captured when the slowest architecture reached 1,580 processed examples, not from a matched-slice or fully converged rerun. \textbf{(ii) No statistical testing.} We report point estimates only; paired bootstrap confidence intervals, permutation tests, and human evaluation are still needed before promoting small TutorEval deltas to strong significance claims. \textbf{(iii) Scope.} The study uses one small backbone (Qwen3.5-4B, thinking budget 512), one shared corpus, and English-language benchmarks, and it evaluates benchmark outputs rather than downstream learning gains.
+We emphasize three constraints, each tied to a concrete remediation that is already implemented as a named script in the released code and listed in~\S\ref{sec:planned}. \textbf{(i) Snapshot EduBench reporting.} TutorEval is fully complete, but EduBench is summarized from a synchronized live snapshot at the common processed floor of 1,580 examples; the same synchronized protocol is rerun at full convergence via \texttt{run\_eval\_session.py}. \textbf{(ii) No statistical testing yet.} We report point estimates; paired bootstrap confidence intervals and permutation tests are provided by \texttt{compute\_paired\_stats.py} and human evaluation by \texttt{export\_human\_eval\_pack.py}. Neither is executed over the final $n=834$ TutorEval slice in this submission. \textbf{(iii) Scope.} The study uses one small backbone (Qwen3.5-4B, thinking budget 512), one shared corpus, and English-language benchmarks, and it evaluates benchmark outputs rather than downstream learning gains.
 
 \section{Conclusion}
 \label{sec:conclusion}
