@@ -1,25 +1,60 @@
-A publication-quality academic scatter plot or Pareto-style tradeoff figure showing the quality-latency geometry of four AI tutoring architectures across two datasets. White background, minimalist IEEE-paper aesthetic, vector style, crisp typography, no decorative clutter.
+PAPER CONTEXT
+-------------
+Optional supplementary figure (not required by the current paper layout
+but ready to drop in) for the IEEE SMC paper "Multi-Agent Retrieval as
+an Alternative to Classical RAG". The figure visualizes the
+quality/latency Pareto frontier across the four retrieval mechanisms
+on two educational tutoring benchmarks.
 
-Figure intent:
-- Visualize the quality-versus-latency tradeoff for four architectures: "classical_rag", "hybrid_fast", "non_rag_multi_agent", and "single_agent_no_rag".
-- Show two dataset groups: "TutorEval" and "EduBench".
-- TutorEval points should visually indicate converged endpoints and be more visually prominent or solid.
-- EduBench points should visually indicate partial-trajectory snapshots and be distinguished by lighter opacity, dashed outlines, or a note in the legend.
+FIGURE INTENT
+-------------
+- X axis: "Latency per example (ms)". Lower is better; place the
+  preferred operating zone on the LEFT.
+- Y axis: "Rubric coverage" (shared across both datasets and both a
+  faithful proxy for the headline quality metric). Higher is better;
+  preferred zone is at the TOP.
+- Two dataset subplots side by side, identical axes:
+  left subplot "TutorEval (n = 834, identical examples)",
+  right subplot "EduBench (synchronized snapshot, n >= 1,580)".
+- Four points per subplot, one per retrieval mechanism.
 
-Axes:
-- Horizontal axis: "Latency (ms)".
-- Vertical axis: "Quality score" or a clearly labeled composite educational quality measure.
-- The upper-left region should visually suggest the preferred operating zone: higher quality, lower latency.
+MECHANISM LABELS AND POSITIONS
+------------------------------
+Use the exact paper labels for the four retrieval mechanisms:
+- "Classical RAG"
+- "Multi-Agent (no retr.)"
+- "Single-Agent (no retr.)"
+- "Multi-Agent Retrieval (ours)"
 
-Styling details:
-- Use one consistent marker shape or color family per architecture.
-- Use a second visual encoding for dataset identity, such as filled vs hollow markers, or solid vs translucent markers.
-- Highlight "hybrid_fast" as the proposed method using a stronger accent color such as teal or blue-green.
-- Use muted academic colors for the baselines: gray, dark blue, and orange.
-- Add a clean legend that distinguishes architecture and dataset status.
-- Add a subtle annotation that TutorEval points are directly comparable and EduBench points are partial non-overlapping subsets.
+Approximate coordinates (mechanism -> (latency_ms, rubric_coverage)):
 
-Overall mood:
-- Clean, precise, scientific, publication-ready.
-- Suitable for IEEE SMC paper figures.
-- Vector infographic aesthetic, not hand-drawn, not 3D.
+TutorEval subplot:
+- Classical RAG            -> (51903, 0.919)
+- Multi-Agent (no retr.)   -> (51048, 0.907)
+- Single-Agent (no retr.)  -> (55257, 0.867)
+- Multi-Agent Retrieval    -> (49113, 0.944)     <-- ours; upper left
+
+EduBench subplot:
+- Classical RAG            -> (19799, 0.706)
+- Multi-Agent (no retr.)   -> (13725, 0.891)
+- Single-Agent (no retr.)  -> (19050, 0.709)
+- Multi-Agent Retrieval    -> (13292, 0.895)     <-- ours; upper left
+
+STYLING
+-------
+- Draw the Pareto frontier as a faint connecting line hugging the
+  upper-left envelope on each subplot.
+- Highlight "Multi-Agent Retrieval (ours)" with a filled teal /
+  blue-green marker slightly larger than the baseline markers and
+  label it directly on the plot (no reliance on the legend).
+- Use muted academic grays for the three baselines.
+- Shared legend across both subplots.
+- Light gridlines, sans-serif labels, IEEE-paper vector aesthetic.
+- Add a subtitle under the plot reading:
+  "Multi-Agent Retrieval is Pareto-better than Classical RAG on both
+  benchmarks: higher rubric coverage at lower latency."
+
+FILE OUTPUT
+-----------
+PDF or SVG at two-column IEEE width. White background, no 3D, no
+decorative clutter. Vector infographic aesthetic, publication-ready.

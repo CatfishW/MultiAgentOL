@@ -1,25 +1,55 @@
-A clean academic systems-architecture diagram for an adaptive tutoring framework, suitable for an IEEE conference paper. The figure should present a high-level layered architecture showing how adaptive tutoring is coordinated through routing, specialist agents, retrieval, and evaluation. White background, flat vector style, modern scientific infographic aesthetics.
+PAPER CONTEXT
+-------------
+Auxiliary / alternative Figure 1 rendering for the IEEE SMC paper
+"Multi-Agent Retrieval as an Alternative to Classical RAG". The goal of
+this alternate rendering is to make the CONCEPTUAL CLAIM of the paper
+visible at a glance: in classical RAG the retriever is the top-level
+controller, while in our multi-agent retrieval mechanism the retriever
+is a gated tool inside a coordination policy. This file is kept as an
+exchangeable companion to execution_families_prompt.txt; either can
+produce figures/family.png.
 
-Core structure:
-- Top input block: "Student Query / Context".
-- Next block: "Regime Router / Supervisory Controller" highlighted as the central decision-making component.
-- From the router, branch into multiple coordinated subsystems:
-  1. "Pedagogical Coordination" branch containing compact modules such as Planner, Diagnoser, Rubric Agent.
-  2. "Evidence Grounding" branch containing Retriever, Reranker, Context Packer.
-  3. "Response Generation" branch containing Tutor Agent and optional Critic Agent.
-- Show that the router decides whether retrieval is required and how much pedagogical coordination is activated.
-- Include a shared "Agent Context" or "Shared State" bus that connects specialist outputs into the Tutor.
-- Final output block: "Adaptive Tutor Response".
+VISUAL STRUCTURE (two paired panels side by side)
+-------------------------------------------------
+Left panel: "Classical RAG (retrieval is the controller)".
+- A Student Query box at top.
+- An arrow down to a large Retriever block that dominates the panel.
+- The Retriever sits visually *above* a small Tutor block, conveying
+  that the retriever is in charge.
+- Label the Retriever "top-level controller: retrieve-then-read".
 
-Optional supporting elements:
-- A side panel or bottom strip labeled "Evaluation / Monitoring" with metrics such as groundedness, rubric coverage, adaptivity, latency, and token cost.
-- Dashed arrows for optional or conditional paths.
-- Solid arrows for always-active control flow.
-- A subtle feedback loop from Critic or Evaluation back to the controller to suggest iterative improvement.
+Right panel: "Multi-Agent Retrieval (our proposal: coordination is the
+controller; retrieval is a gated tool)".
+- A Student Query box at top.
+- An arrow into a central "Coordination Stack" block that contains the
+  Planner, Diagnoser, and Rubric agents running in parallel.
+- Beneath the Coordination Stack, a diamond labeled
+  "Gate  s_e >= 0.35 ?".
+- From the gate, a DASHED branch drops to a smaller Retriever block
+  (conditional tool), and a SOLID branch bypasses it.
+- Both branches converge into the Tutor.
+- An optional Critic loops back into the Tutor with a dashed arrow, and
+  a second dashed fallback loop goes from the Critic back to the
+  Retriever.
+- Label the Coordination Stack "top-level controller"; label the
+  Retriever "tool (called only when needed)".
 
-Visual style:
-- Hierarchical and easy to scan.
-- Blue and gray palette with one accent color for the controller or proposed pathway.
-- Boxes with consistent spacing and alignment.
-- High contrast and legible labels.
-- Professional figure suitable for systems, cybernetics, human-machine systems, and AI education papers.
+CONTRAST MARKERS
+----------------
+- In the left panel the Retriever box is large and placed on the main
+  axis. In the right panel the Retriever box is small and offset.
+- Keep the Tutor block the same size in both panels so the reader sees
+  that only the controller identity changed, not the downstream reader.
+- Below both panels, add a shared caption strip:
+  "Same backbone, same corpus, same reranker; only the control
+  structure around retrieval differs."
+
+STYLE
+-----
+Flat vector illustration, modern scientific infographic aesthetic, white
+background. Neutral gray and muted slate for the classical RAG panel;
+teal / blue-green accent reserved for the Coordination Stack, the Gate,
+and the dashed retrieval branch in the Multi-Agent Retrieval panel.
+Solid outlines for always-active paths, dashed outlines for conditional
+and fallback paths. No 3D, no decorative clutter, no hand-drawn styling.
+Labels must stay legible at two-column IEEE size.

@@ -1,0 +1,10 @@
+.DS_Store
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.synctex.gz
+main_smc_compiled.pdf
+main_smc_compressed.pdf
+main_smc_latest.pdf

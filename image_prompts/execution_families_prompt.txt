@@ -1,10 +1,55 @@
-A clean, modern, academic-style block diagram illustrating four different execution families of an AI educational tutoring system. The diagram should be organized into four distinct panels or columns: "Classical RAG", "Agentic RAG", "Non-RAG Multi-Agent", and "Hybrid Fast" (highlighted as the proposed method).
+PAPER CONTEXT
+-------------
+Figure 1 (file: figures/family.png) for an IEEE SMC conference paper titled
+"Multi-Agent Retrieval as an Alternative to Classical RAG: A Controlled
+Comparison on Educational Tutoring Benchmarks". The figure compares four
+alternative RETRIEVAL MECHANISMS that feed the same downstream reader.
+Every panel shows the same Student Query on the left; the only thing that
+varies is how evidence is supplied to the Tutor.
 
-The elements in the diagram should be simple geometric shapes (rectangles for modules/agents). Use solid outlines for always-active modules and dashed outlines for optional or conditional modules.
+VISUAL STRUCTURE (four columns, left to right)
+----------------------------------------------
+1) "Classical RAG" (baseline).
+   Student Query -> Retriever (always on) -> Tutor -> optional Critic.
+   Label the Retriever block with a small corpus icon and the text
+   "retrieve-then-read". Use neutral gray tones.
 
-- "Classical RAG" panel: Flow from a User Query directly to a Retriever, then to a Tutor model.
-- "Agentic RAG" panel: Flow from a User Query to a set of Agentic Planners, then to a Retriever, then to a Tutor model.
-- "Non-RAG Multi-Agent" panel: Flow from a User Query to a group of multiple parallel specialists (Planner, Diagnoser, Rubric), which feed directly into a Tutor model, with no Retriever.
-- "Hybrid Fast" (Proposed) panel: Flow from a User Query to a Router. The Router sends the query to parallel specialists (Planner, Diagnoser, Rubric) and has a conditional path (dashed line) to a Retriever. Both feed into the Tutor model, which has a dashed loop back from an optional Critic model, and a dashed fallback loop to the Retriever.
+2) "Multi-Agent (no retrieval)".
+   Student Query -> three parallel specialist blocks (Planner | Diagnoser |
+   Rubric) -> Tutor -> optional Critic. No Retriever block is present. Add
+   a small label under the specialist row reading "coordination replaces
+   retrieval". Use neutral gray/blue tones.
 
-Style: Flat vector illustration, clean lines, minimalist, high contrast, academic color palette (blues, grays, and a distinct highlight color like orange or teal for the Hybrid Fast path). White background. Text should be legible if generated.
+3) "Single-Agent (no retrieval)" (ablation floor).
+   Student Query -> Tutor -> optional Critic. No coordination, no retrieval.
+   Use faded/muted tones so the reader reads this panel as the floor.
+
+4) "Multi-Agent Retrieval (ours)" -- highlight this panel in a teal or
+   blue-green accent.
+   Student Query -> three parallel specialists (Planner | Diagnoser |
+   Rubric) -> a small diamond labeled "Gate: s_e >= 0.35 ?". The gate has
+   a DASHED branch to the Retriever (conditional) and a SOLID branch that
+   bypasses retrieval. Both branches re-converge at a shared context node
+   that feeds the Tutor. The Tutor outputs a draft to the Critic (dashed).
+   From the Critic a dashed "Fallback retrieval" arrow loops back to the
+   Retriever and then back to the Tutor.
+
+NOTATION RULES
+--------------
+- Solid arrows / outlines = always-active control flow.
+- Dashed arrows / outlines = conditional, optional, or fallback flow.
+- The Retriever block appears in panels 1 and 4 only.
+- Use the same geometric vocabulary in every panel (rounded rectangles for
+  agents, a diamond for the gate, a small cylinder icon for the corpus).
+- Below the four panels, add a single-line caption strip reading:
+  "All four mechanisms share the same Qwen3.5-4B backbone, shared corpus,
+  shared reranker, and response budget."
+
+STYLE
+-----
+Flat vector illustration, crisp minimalist IEEE-paper aesthetic, high
+contrast on a white background. Color palette: neutral grays and muted
+blue/slate for the baselines (panels 1-3), with a single teal or
+blue-green accent reserved for the proposed Multi-Agent Retrieval panel
+(panel 4). Labels must remain legible at column width in a two-column
+IEEE layout. Avoid 3D, avoid decorative clutter, avoid hand-drawn styling.
