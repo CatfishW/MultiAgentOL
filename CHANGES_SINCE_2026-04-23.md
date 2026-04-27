@@ -39,7 +39,7 @@ code; scripts cited below live in `MultiAgent/` unless noted otherwise.
    third ablation turning retrieval back on inside Multi-Agent
    (no retrieval) is implemented and documented at
    `MultiAgent/docs/EXPERIMENTS.md`.
-6. **Dual-backbone scope (Qwen3.5-4B and Qwen3.6-27B-FP8).**
+6. **Dual-backbone scope (Qwen3.5-4B and Qwen3.5-27B-FP8).**
    The paper now explicitly covers two open-weight backbones. The 27B
    track is pinned via `configs/system.experiments.qwen27b.yaml` using a
    new `pinned_model` option on `EndpointConfig` that forces every agent
@@ -118,7 +118,7 @@ code; scripts cited below live in `MultiAgent/` unless noted otherwise.
 - `MultiAgent/configs/system.experiments.qwen4b.yaml`,
   `MultiAgent/configs/system.experiments.qwen27b.yaml`: explicit dual
   backbone configs; qwen27b pins every agent to
-  `/home/benwulab/Models/Qwen3.6-27B-FP8`.
+  `/home/benwulab/Models/Qwen3.5-27B-FP8`.
 - `MultiAgent/scripts/launch_parallel_sessions.sh`: accepts
   `--config configs/system.experiments.qwen{4b,27b}.yaml` for the
   respective tracks.
@@ -134,3 +134,14 @@ code; scripts cited below live in `MultiAgent/` unless noted otherwise.
 - `MultiAgent/logs/experiments_dual_qwen27b/exp_tutoreval_*.log`
   (27B run logs, n=200 TutorEval slice processing at submission;
   EduBench n=100 slice runs next)
+
+## Post-audit corrections (2026-04-26)
+
+- The paper's Discussion/Limitations now quote the archived EduBench
+  intersection `complexity_units` values directly from the released runs:
+  3,906 for hybrid vs 5,289 for classical RAG (about `-26%`), replacing an
+  earlier stale pair of numbers from a different audit slice.
+- The manuscript now states explicitly that the evaluator supports the
+  retrieval-agnostic `corpus_factuality` audit, but the archived main
+  comparison predates that metric, so it is not presented as a headline
+  result.
