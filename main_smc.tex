@@ -91,49 +91,30 @@ Recent tutoring systems instantiate specialized educational roles--AgentTutor~\c
 \section{Four Retrieval Mechanisms Under Shared Infrastructure}
 \label{sec:methodology}
 
-All four mechanisms share the same tutor/critic backbone, corpus, reranker, MMR packer, and per-call response cap; the only designed dimension that varies is \emph{how evidence is supplied to the reader}. Fig.~\ref{fig:framework} sketches the proposed hybrid pipeline. Within each benchmark we freeze one shared index: TutorEval uses 3{,}226 source documents (11{,}368 chunks), while EduBench uses 88{,}875 source documents (109{,}733 chunks), both chunked at 220 tokens with 40-token overlap. An implemented \texttt{agentic\_rag} path is excluded from the main table because the frozen archive does not contain a complete parity-controlled slice for every benchmark; including it would reintroduce unequal-example-set comparisons. The design principle is simple: invoke retrieval only when an instance needs external evidence, and spend the saved budget on retrieval-context coordination. Backbone calls are therefore observed rather than forced equal.
+All four mechanisms share the same tutor/critic backbone, corpus, reranker, context packer, and response budget; the only designed difference is \emph{how supporting context is assembled before the tutor writes}. Fig.~\ref{fig:framework} sketches the proposed hybrid pipeline. For each benchmark we freeze one common retrieval index and keep its construction unchanged across mechanisms. We omit one additional agentic-retrieval variant from the main table because it does not have a fully matched slice on every benchmark; including it would reintroduce unequal-example-set comparisons. The design principle is simple: retrieve when external evidence is genuinely needed, and otherwise spend the budget on building a better pedagogical view of the learner and the grading criteria. Backbone calls are therefore treated as an observed efficiency outcome rather than a quantity forced to be equal by design.
 
 \subsection{Regime-aware routing}
 
-For each example $x$, the router computes five heuristic scores $s(x)\!\in\![0,1]^5$ over normalized keyword cues (evidence, coordination, rubric, planning, tutoring), with small dataset and context-signal bonuses (documented in \texttt{regime\_router.py}: $+0.08$ for non-trivial context passages, $+0.05$ per attached image, $+0.20$ when a rubric is present, $+0.12$--$0.18$ per-dataset priors). An optional logistic-regression classifier can override the heuristic family when a trained router is loaded; our frozen runs use the heuristic path throughout. The selected mechanism is
-\begin{equation}
-\label{eq:router}
-\!\mathrm{mech}(x)\!=\!\begin{cases}
-\mathrm{CLASSICAL} & s_e(x)\!\geq\!\tau_e^{\mathrm{cls}},\, s_c(x)\!<\!\tau_c\\
-\mathrm{NON\text{-}RAG} & s_c(x)\!\geq\!\tau_c,\, s_e(x)\!<\!0.28\\
-\mathrm{HYB\text{-}FAST} & \text{otherwise},
-\end{cases}
-\end{equation}
-with $(\tau_e^{\mathrm{cls}},\tau_c)\!=\!(0.52,0.50)$. Within \texttt{hybrid\_fast}, the retrieval gate is
-\begin{equation}
-\label{eq:gate}
-\begin{aligned}
-\mathrm{require\_retrieval}(x)\!=\!\mathbb{1}\!\big[
-&s_e(x)\!\geq\!\tau_e^{\mathrm{gate}}\\
-&\lor\; \mathrm{regime}(x)\!=\!\text{EG}
-\big]
-\end{aligned}
-\end{equation}
-with $\tau_e^{\mathrm{gate}}\!=\!0.35$ and EG the evidence-grounded regime. A fallback retrieval pass fires when the draft has no chunks but $s_e(x)\!\geq\!\tau_e^{\mathrm{fall}}\!=\!0.45$. All thresholds are the production values shipped with \texttt{RouterConfig}. A sweep $\tau_e^{\mathrm{gate}}\!\in\![0.30,0.55]$, produced by \texttt{run\_threshold\_sweep.py}, shows quality is flat on $[0.30,0.45]$.
+The router decides which mechanism is most appropriate for each example by estimating two high-level needs: how strongly the answer depends on external evidence, and how strongly it depends on pedagogical coordination such as student diagnosis or rubric interpretation. These judgments are made from the prompt, available context, rubric signals, and benchmark-specific cues. When evidence demand is high and coordination demand is modest, the system follows classical retrieve-then-read behavior. When pedagogical coordination is dominant and explicit evidence need is weak, the system follows the retrieval-free multi-agent path. The remaining cases are handled by the proposed hybrid mechanism, in which the specialist agents first prepare pedagogical context and retrieval is then called only if the example still appears evidence-grounded. If the intermediate draft remains weakly grounded, the router can trigger one fallback retrieval pass. In all reported experiments, this routing policy is fixed before evaluation and applied unchanged across benchmarks.
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=0.94\textwidth]{figures/MultiAgentMain.png}
-\caption{Main framework of \textsc{Multi-Agent Retrieval} (\texttt{hybrid\_fast}). Planner, diagnoser, and rubric agents build shared context first; the router then gates retrieval per example, and a fallback retrieval pass is issued only when the draft remains ungrounded while evidence demand stays high.}
+\caption{Main framework of \textsc{Multi-Agent Retrieval}. Planner, diagnoser, and rubric agents build pedagogical context first; the router then decides whether retrieval is necessary for that example, with a fallback retrieval pass only when the draft still lacks sufficient grounding.}
 \label{fig:framework}
 \end{figure*}
 
 \subsection{Specialist agents and shared context}
 
-All four retrieval mechanisms operate on a shared \texttt{AgentContext} carrying the example, route decision, student state, search queries, rubric summary, retrieved chunks, and draft answer. \textbf{The tutor and the critic are held constant across all four mechanisms}: the tutor drafts from the supplied context; an optional critic revises only on concrete issues. The \emph{only} moving parts are the pre-tutor retrieval-context modules: the \textbf{planner} emits up to three search queries, the \textbf{diagnoser} infers learner state, the \textbf{rubric agent} compiles a checklist, and the router gates the retriever per example. In the released runs, planner, diagnoser, and rubric are deterministic lightweight modules, while only tutor and critic emit backbone usage.
+All four retrieval mechanisms operate over the same shared state: the tutoring prompt, the inferred learner profile, the rubric summary, any retrieved evidence, and the evolving draft answer. \textbf{The tutor and the critic are held constant across all four mechanisms}: the tutor writes from the supplied context, and the critic revises only when it identifies a concrete issue. The \emph{only} moving parts are the upstream modules that prepare retrieval context. The \textbf{planner} formulates what information the system should look for, the \textbf{diagnoser} infers learner level and likely misconceptions, the \textbf{rubric agent} summarizes what a strong answer should cover, and the router decides whether those signals are sufficient on their own or whether the corpus should also be consulted. This design isolates the effect of changing the retrieval context while leaving the downstream writer unchanged.
 
 \subsection{Hybrid retrieval, reranking, and context packing}
 
-The retrieval stack is intentionally lightweight. We use sparse retrieval rather than a dense encoder because the benchmark evidence is dominated by short textbook phrases, rubric terms, and scenario labels. The hybrid index combines word-level TF--IDF ($\lambda_w\!=\!0.58$), character $n$-gram TF--IDF ($\lambda_c\!=\!0.17$), and an optional truncated-SVD latent projection ($\lambda_\ell\!=\!0.25$); the weighted similarity is boosted by query--title overlap. A six-feature logistic reranker reorders the candidates, and a maximum marginal relevance~\cite{carbonell1998mmr} packer with $\lambda_{\text{MMR}}\!=\!0.68$ selects up to four chunks within a $6{,}000$-character context budget.
+The retrieval stack is intentionally lightweight. We use sparse retrieval rather than a large dense encoder because the benchmark evidence is often expressed through short textbook phrases, rubric terms, and scenario labels. Candidate passages are gathered with complementary lexical views, reranked for relevance, and then filtered for diversity before being packed into a fixed context budget. In practice, the tutor sees at most four retrieved chunks, which keeps the comparison focused on retrieval quality rather than on simply enlarging the context window.
 
 \subsection{Evaluation protocol}
 
-Metric handling is dataset-aware and enforced in code: shared metrics include composite score, Token-F1, rubric coverage, latency, token count, and backbone-call count; EduBench additionally reports its 12-dimension rubric and score alignment, while TutorEval reports tutor-hit and chapter-grounded tutoring quality. Inapplicable metrics are omitted rather than forced to zero. The release records a composite \texttt{complexity\_units} workload audit. The evaluation code also supports a retrieval-agnostic \texttt{corpus\_factuality} score when a compatible shared index is supplied, but the archived main comparison predates that audit, so we do not treat it as a headline result here.
+Evaluation is dataset-aware. Shared metrics include composite score, Token-F1, rubric coverage, latency, token count, and backbone-call count. EduBench additionally reports its multi-dimensional educational rubric and score alignment, while TutorEval reports tutor-hit and chapter-grounded tutoring quality. Metrics that do not apply to a benchmark are omitted rather than forced to zero. We also record a composite workload audit for efficiency analysis. A retrieval-agnostic corpus-factuality check is supported when a compatible shared index is available, but the archived main comparison predates that audit, so we do not present it as a headline result here.
 
 
 \section{Experimental Results}
