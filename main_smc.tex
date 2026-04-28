@@ -23,12 +23,6 @@
 \setlength{\intextsep}{4pt plus 1pt minus 2pt}
 \setlength{\abovecaptionskip}{3pt}
 \setlength{\belowcaptionskip}{1pt}
-\newcommand{\mechcell}[2]{%
-  \begin{minipage}[t][2.62cm][c]{0.47\columnwidth}\centering
-  \fbox{\parbox[c][2.46cm][t]{0.41\columnwidth}{\centering\scriptsize\textbf{#1}\\[2pt] #2}}
-  \end{minipage}%
-}
-
 \title{\LARGE \bf
 Multi-Agent Retrieval as an Alternative to Classical RAG:\\
 A Controlled Comparison on Educational Tutoring Benchmarks
@@ -59,14 +53,7 @@ This paper explores whether multi-agent retrieval can replace classical RAG as t
 
 \begin{figure}[t]
 \centering
-\scriptsize
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{@{}cc@{}}
-\mechcell{Classical RAG}{Sample\\ $\downarrow$\\ Retriever\\ $\downarrow$\\ Tutor} &
-\mechcell{Multi-Agent\\(no retrieval)}{Sample\\ $\downarrow$\\ Planner + Diagnoser\\ + Rubric\\ $\downarrow$\\ Tutor} \\[2pt]
-\mechcell{Single-Agent\\(no retrieval)}{Sample\\ $\downarrow$\\ Tutor} &
-\mechcell{Hybrid}{Sample\\ $\downarrow$\\ Planner + Diagnoser\\ + Rubric\\ $\downarrow$\\ Retrieve if needed\\ $\downarrow$\\ Tutor}
-\end{tabular}
+\includegraphics[width=\columnwidth]{figures/controlled_comparison_clean.png}
 \caption{Forced mechanisms in the controlled comparison, including the proposed hybrid system. Only context assembly and retrieval policy change.}
 \label{fig:mechanism_comparison}
 \end{figure}
@@ -139,7 +126,7 @@ which matches the production threshold in the codebase. Inside the hybrid pipeli
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=0.94\textwidth]{figures/hybrid_implementation.png}
+\includegraphics[width=0.94\textwidth]{figures/MultiAgentMain.png}
 \caption{Main framework of \textsc{Multi-Agent Retrieval}. In the released implementation, the router scores the raw tutoring sample first; inside the hybrid pipeline, planning, personalized-learning-state diagnosis, and rubric summarization then assemble the tutoring brief before optional retrieval, with a fallback retrieval pass only when the draft still lacks sufficient grounding.}
 \label{fig:framework}
 \end{figure*}
