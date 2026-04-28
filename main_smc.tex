@@ -23,6 +23,11 @@
 \setlength{\intextsep}{4pt plus 1pt minus 2pt}
 \setlength{\abovecaptionskip}{3pt}
 \setlength{\belowcaptionskip}{1pt}
+\newcommand{\mechcell}[2]{%
+  \begin{minipage}[t][2.62cm][c]{0.47\columnwidth}\centering
+  \fbox{\parbox[c][2.46cm][t]{0.41\columnwidth}{\centering\scriptsize\textbf{#1}\\[2pt] #2}}
+  \end{minipage}%
+}
 
 \title{\LARGE \bf
 Multi-Agent Retrieval as an Alternative to Classical RAG:\\
@@ -50,33 +55,40 @@ This is precisely where classical query-only RAG is a weak fit. A retrieve-then-
 
 A natural alternative is therefore to let a small group of specialist modules build a tutoring brief before answer generation. A planner can propose a scoped search intent; a diagnoser can summarize personalized learning state from the prompt and dialogue; a rubric agent can compile what a strong answer should cover; and only then does a retriever (if anyone) consult the corpus. We refer to this family of systems as \emph{multi-agent retrieval}. Unlike classical RAG, the retriever is no longer the top-level controller; it becomes an optional tool inside a coordination policy that has already identified what the learner needs.
 
-This paper explores whether multi-agent retrieval can replace classical RAG as the grounding mechanism in educational tutoring. We formulate the comparison as a controlled ablation over four retrieval mechanisms that share the same Qwen3.5-4B tutor/critic backbone (reasoning-token budget 512), the same shared corpus, the same reranker, and the same per-call response cap: (i) \textsc{Classical RAG} (retrieve-always, retrieve-then-read), (ii) \textsc{Multi-Agent (no retrieval)}, which replaces the retriever with parallel planner, diagnoser, and rubric modules, (iii) \textsc{Single-Agent (no retrieval)} as an ablation floor, and (iv) our \textsc{Multi-Agent Retrieval} mechanism (\texttt{hybrid\_fast}), in which planner, diagnoser, and rubric modules prepare context and retrieval is invoked only when the route indicates it is needed. The contrast is deliberate: all four mechanisms consume the same raw tutoring sample, but they assemble different upstream context before the shared tutor writes. In the benchmark scripts, each architecture is run as a separately forced variant rather than as one live four-way router choosing among them online. Fig.~\ref{fig:mechanism_comparison} summarizes that controlled comparison. We do \emph{not} force equal total system structure per sample; Table~\ref{tab:updated_quality_summary} therefore reports observed backbone-call count as an efficiency outcome rather than assuming it is constant.
+This paper explores whether multi-agent retrieval can replace classical RAG as the grounding mechanism in educational tutoring. We formulate the comparison as a controlled ablation over four retrieval mechanisms that share the same Qwen3.5-4B tutor/critic backbone (reasoning-token budget 512), the same shared corpus, the same reranker, and the same per-call response cap: (i) \textsc{Classical RAG} (retrieve-always, retrieve-then-read), (ii) \textsc{Multi-Agent (no retrieval)}, which replaces the retriever with parallel planner, diagnoser, and rubric modules, (iii) \textsc{Single-Agent (no retrieval)} as an ablation floor, and (iv) our \textsc{Multi-Agent Retrieval} mechanism (\texttt{hybrid\_fast}), in which planner, diagnoser, and rubric modules prepare context and retrieval is invoked only when the route indicates it is needed. The contrast is deliberate: all four mechanisms consume the same raw tutoring sample, but they assemble different upstream context before the shared tutor writes. We do \emph{not} force equal total system structure per sample; Table~\ref{tab:updated_quality_summary} therefore reports observed backbone-call count as an efficiency outcome rather than assuming it is constant.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\columnwidth]{figures/controlled_comparison.png}
-\caption{Controlled comparison of the four mechanisms. Only upstream context assembly and retrieval policy change.}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}cc@{}}
+\mechcell{Classical RAG}{Sample\\ $\downarrow$\\ Retriever\\ $\downarrow$\\ Tutor} &
+\mechcell{Multi-Agent\\(no retrieval)}{Sample\\ $\downarrow$\\ Planner + Diagnoser\\ + Rubric\\ $\downarrow$\\ Tutor} \\[2pt]
+\mechcell{Single-Agent\\(no retrieval)}{Sample\\ $\downarrow$\\ Tutor} &
+\mechcell{Hybrid}{Sample\\ $\downarrow$\\ Planner + Diagnoser\\ + Rubric\\ $\downarrow$\\ Retrieve if needed\\ $\downarrow$\\ Tutor}
+\end{tabular}
+\caption{Forced mechanisms in the controlled comparison, including the proposed hybrid system. Only context assembly and retrieval policy change.}
 \label{fig:mechanism_comparison}
 \end{figure}
 
-Educational tutoring is broader than textbook question answering. A deployed tutor may need to explain a concept, diagnose a misconception from a dialogue turn, score a response against a rubric, recommend a learning path, or produce supportive next-step feedback. Those subproblems require different kinds of grounding: some depend primarily on external instructional evidence, while others depend more on personalized learning state, rubric structure, or scenario framing. Related educational-evaluation work~\cite{macina2025mathtutorbench,srinivasa2025tutorbench,hazra2026safetutors} reinforces the methodological point: a grounding mechanism cannot be judged on retrieval recall alone. On TutorEval ($n{=}834$ matched samples) and on the EduBench intersection ($n{=}1562$ matched samples), the same tutor scores higher when fed multi-agent retrieval context while using fewer tokens; on EduBench it also reduces latency and backbone calls.
+Educational tutoring is broader than textbook question answering. A deployed tutor may need to explain a concept, diagnose a misconception from a dialogue turn, score a response against a rubric, recommend a learning path, or produce supportive next-step feedback. Those subproblems require different kinds of grounding: some depend primarily on external instructional evidence, while others depend more on personalized learning state, rubric structure, or scenario framing. Related educational-evaluation work~\cite{macina2025mathtutorbench,srinivasa2025tutorbench} reinforces the methodological point: a grounding mechanism cannot be judged on retrieval recall alone. On TutorEval ($n{=}834$ matched samples) and on the EduBench intersection ($n{=}1562$ matched samples), the same tutor scores higher when fed multi-agent retrieval context while using fewer tokens; on EduBench it also reduces latency and backbone calls.
 
 \noindent\textbf{Contributions.} (i) We provide a controlled tutoring-side comparison of four retrieval mechanisms under a shared backbone, corpus, reranker, and per-call cap. (ii) We release a training-free pedagogical router and open framework in which only the retrieval-context modules vary: planner, diagnoser, rubric, router, and retriever change, while the tutor and critic are held constant. Released configs pin \textsc{Qwen3.5-4B} and \textsc{Qwen3.5-27B-FP8}; scripts reproduce every cell. (iii) On TutorEval ($n{=}834$) and the EduBench intersection ($n{=}1562$), paired bootstrap CIs and permutation tests show that multi-agent retrieval beats classical RAG on fixed-tutor outcome and efficiency metrics while reducing observed backbone invocations on both benchmarks.
 
 \section{Related Work}
 
-Our work sits at the intersection of classical RAG, agentic retrieval, and educational tutoring benchmarks. Classical RAG fixes a retrieve-then-read controller~\cite{lewis2020rag}, while later systems relax that controller through learned or heuristic retrieval decisions such as Self-RAG, CRAG, Adaptive-RAG, FRAG, LLM-Independent Adaptive RAG, RetrievalQA, and TARG~\cite{asai2024selfrag,yan2024crag,jeong2024adaptiverag,gao2025frag,marina2025llmindependentrag,zhang2024retrievalqa,wang2026targ}. Our claim is narrower than novelty over selective retrieval in general: we test a tutoring-specific route-and-context design in which raw tutoring samples are routed first and the hybrid pipeline then assembles pedagogical context from planning, diagnosis, and rubric signals before optional retrieval. Evaluation and long-context studies further show that strong retrieval alone does not guarantee grounded generation~\cite{chen2023benchmarkingrag,ru2024ragchecker,friel2024ragbench,rau2024bergen,bai2024longbench2,liu2024lostmiddle}.
+Our work sits at the intersection of classical RAG, agentic retrieval, and educational tutoring benchmarks. Classical RAG fixes a retrieve-then-read controller~\cite{lewis2020rag}, while later systems relax that controller through learned or heuristic retrieval decisions such as Self-RAG, CRAG, Adaptive-RAG, and TARG~\cite{asai2024selfrag,yan2024crag,jeong2024adaptiverag,wang2026targ}. Our claim is narrower than novelty over selective retrieval in general: we test a tutoring-specific route-and-context design in which raw tutoring samples are routed first and the hybrid pipeline then assembles pedagogical context from planning, diagnosis, and rubric signals before optional retrieval. Evaluation and long-context studies further show that strong retrieval alone does not guarantee grounded generation~\cite{ru2024ragchecker,friel2024ragbench,liu2024lostmiddle}.
 
-Agentic systems instead treat retrieval as one tool inside a larger coordination loop. ReAct, AutoGen, CAMEL, MetaGPT, MA-RAG, and related studies show that role decomposition can improve planning-heavy or staged reasoning tasks~\cite{yao2023react,wu2024autogen,li2023camel,hong2024metagpt,nguyen2025marag,radeva2025coordination,liu2023agentbench}. Our paper makes that comparison explicit for tutoring by holding the downstream tutor fixed and varying only how tutoring context is assembled before generation.
+Agentic systems instead treat retrieval as one tool inside a larger coordination loop. ReAct, AutoGen, MA-RAG, and related studies show that role decomposition can improve planning-heavy or staged reasoning tasks~\cite{yao2023react,wu2024autogen,nguyen2025marag}. Our paper makes that comparison explicit for tutoring by holding the downstream tutor fixed and varying only how tutoring context is assembled before generation.
 
-Education-focused evaluation has shifted from short-form accuracy toward pedagogy, adaptivity, and instructional safety. TutorEval, EduBench, and related tutoring benchmarks therefore reinforce the same point: when evaluation measures rubric adherence and calibrated help, a system's \emph{grounding mechanism} cannot be judged on retrieval recall alone~\cite{chevalier2024sciencetutors,xu2025edubench,macina2025mathtutorbench,srinivasa2025tutorbench,hazra2026safetutors}.
+Education-focused evaluation has shifted from short-form accuracy toward pedagogy, adaptivity, and instructional safety. TutorEval, EduBench, and related tutoring benchmarks therefore reinforce the same point: when evaluation measures rubric adherence and calibrated help, a system's \emph{grounding mechanism} cannot be judged on retrieval recall alone~\cite{chevalier2024sciencetutors,xu2025edubench,macina2025mathtutorbench,srinivasa2025tutorbench}.
 
 \section{Datasets}
 \label{sec:datasets}
 
-We use two public educational benchmarks with complementary supervision styles. TutorEval~\cite{chevalier2024sciencetutors}, released with LM-Science-Tutor, contains over 800 expert-written student questions; its main open-book setting uses all 834 questions, each paired with a long STEM textbook chapter and expert teaching key points. In our local export, rows also retain flags such as \texttt{closed\_book}, \texttt{answer\_in\_chapter}, and \texttt{misleading\_question}. TutorEval is therefore a chapter-grounded tutoring benchmark: the system must explain, disambiguate, and address likely misconceptions while staying aligned with a long chapter rather than a short retrieved snippet.
+We use two public educational benchmarks with complementary supervision styles. TutorEval~\cite{chevalier2024sciencetutors}, released with LM-Science-Tutor, contains over 800 expert-written student-style science questions; its main open-book setting uses all 834 questions, each paired with a long STEM textbook chapter and expert teaching key points. In our local export, rows also retain flags such as \texttt{closed\_book}, \texttt{answer\_in\_chapter}, and \texttt{misleading\_question}. TutorEval is therefore a chapter-grounded tutoring benchmark: the system must explain, disambiguate, and address likely misconceptions while staying aligned with a long chapter rather than a short retrieved snippet.
 
-EduBench~\cite{xu2025edubench} is broader. The official benchmark covers nine educational scenarios, split into five student-oriented tasks and four teacher-oriented tasks, with over 4{,}000 educational situations and 12 core evaluation dimensions. The released rows contain a prompt, scenario metadata, and multiple reference model predictions; our adapter turns those predictions into consensus-style supervision through reference-score statistics and rubric terms. For paper reporting, we use the 1562-example four-way intersection completed by all forced architectures. Personalized-learning signals are especially explicit in PLS and PCC rows, where student profiles specify level, goals, study habits, interests, and weak points.
+EduBench~\cite{xu2025edubench} is broader. The official benchmark covers nine educational scenarios, split into five student-oriented tasks and four teacher-oriented tasks, with over 4{,}000 educational situations and 12 evaluation dimensions. These scenarios include question answering, error correction, personalized support, emotional support, grading, teaching-material generation, and personalized content creation. The released rows contain a prompt, scenario metadata, and multiple reference model predictions; our adapter turns those predictions into consensus-style supervision through reference-score statistics and rubric terms. For paper reporting, we use the 1562-example four-way intersection completed by all forced architectures. Personalized-learning signals are especially explicit in PLS and PCC rows, where student profiles specify level, goals, study habits, interests, and weak points.
 
 \section{Methodology}
 \label{sec:methodology}
@@ -224,22 +236,20 @@ On the EduBench intersection, multi-agent retrieval improves EB12D by $+0.031$ a
 
 Two executed 4B ablations on a shared TutorEval slice ($n{=}100$) isolate the mechanism. Forcing retrieval hurts Token-F1 ($-0.003$), tutor-hit ($-0.015$), and rubric coverage ($-0.025$) with little token change ($-36$), so the gate is functionally active. Turning the shared critic off improves all scalar metrics and cuts tokens by $27\%$ ($-891$), implying that the hybrid gain does not come from the critic. On a pinned \textsc{Qwen3.5-27B-FP8} backbone, all eight sessions completed: TutorEval score deltas collapse near zero, but hybrid remains more efficient ($-992$ tokens, $-11{,}845$\,ms), and the EduBench pattern repeats on the 27B intersection ($n{=}87$) with EB12D $+0.032$, rubric $+0.210$, tokens $-1{,}861$, and latency $-22{,}070$\,ms.
 
-\section{Discussion}
-\label{sec:discussion}
-
-The evidence supports a narrower claim than ``agents are better tutors'': multi-agent coordination can replace the retriever as the main context-construction mechanism. Planner, diagnoser, and rubric modules perform work that classical RAG delegates to one embedded query, and the quality gains do not coincide with extra backbone use: tutor/critic calls fall from 1.84 to 1.56 on TutorEval and from 1.97 to 1.48 on EduBench. The remaining caveat is structural rather than computational, because hybrid adds deterministic coordination modules even when backbone usage drops.
-
 \section{Limitations}
 \label{sec:limitations}
 
-Limitations remain. The study fixes backbone, cap, corpus, and retriever but not the full system structure; the archived main comparison predates the retrieval-agnostic corpus-factuality audit and uses automatic rather than human evaluation; and the scope is limited to two open-weight backbones, one shared corpus per benchmark, English-only data, and benchmark outputs rather than downstream learning gains.
+Limitations remain. The study fixes backbone, cap, corpus, and retriever but not the full system structure; it reports automatic rather than human evaluation; and it is limited to two open-weight backbones, one shared corpus per benchmark, English-only data, and benchmark outputs rather than downstream learning gains.
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-Under shared infrastructure, multi-agent retrieval improves fixed-tutor quality and efficiency on TutorEval and especially on the EduBench intersection. In educational tutoring, better context assembly before generation can beat classical retrieve-first control.
+Under shared infrastructure, multi-agent retrieval improves fixed-tutor quality and efficiency on TutorEval and especially on the EduBench intersection. The gain comes from changing how tutoring context is assembled, not from adding more backbone calls. In educational tutoring, better context assembly before generation can beat classical retrieve-first control.
 
+\begingroup
+\scriptsize
 \bibliographystyle{IEEEtran}
 \bibliography{references/references}
+\endgroup
 
 \end{document}
