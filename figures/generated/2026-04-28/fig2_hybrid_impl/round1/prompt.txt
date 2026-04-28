@@ -1,0 +1,17 @@
+Precise academic systems architecture diagram for an educational tutoring pipeline, flat vector style, white background, clean full-width IEEE figure, left-to-right flow, compact but highly legible, no glossy effects, no cartoon characters, no 3D icons.
+
+Top banner: "Released hybrid_fast implementation"
+
+Far left input bundle with four stacked boxes: Student question, dialogue history, inline context or chapter text, rubric or benchmark metadata.
+
+These raw inputs feed a box labeled "Lightweight Regime Router". Inside or beside it, show five small score tags: s_e evidence, s_c coordination, s_r rubric, s_p planning, s_t tutoring. Add a small note: "route computed on raw sample". Router outputs two labels: "regime" and "require_retrieval".
+
+Next stage: three parallel lightweight modules labeled Planner, Diagnoser, Rubric. Planner emits up to 3 search queries. Diagnoser emits personalized learning state: level, goals, style, misconceptions. Rubric emits checklist. These populate a central box labeled "AgentContext".
+
+Conditional retrieval branch: if require_retrieval is true, AgentContext/Planner queries feed a "Hybrid Retrieval Stack" made of four small linked blocks: word TF-IDF, char 3-5 gram TF-IDF, latent SVD, heuristic reranker, then MMR packer. Add small callout: "up to 4 chunks, 6000-char context budget". Use a teal accent for this conditional branch only.
+
+AgentContext plus optional retrieved chunks feed a fixed Tutor box. From Tutor, dashed optional arrow to Critic. From Critic or draft path, dashed fallback loop to Retriever with label: "fallback if no grounding and evidence score remains high". Then loop back once to Tutor.
+
+Final output block on far right: "Tutor response". Add tiny note below output: "TutorEval: prose tutoring response | EduBench: JSON score, details, feedback"
+
+Include a small legend: solid = default path, dashed = conditional or fallback. Overall mood: scholarly, precise, publication-ready systems figure.

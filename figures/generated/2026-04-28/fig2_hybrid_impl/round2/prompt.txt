@@ -1,0 +1,17 @@
+Code-faithful academic systems architecture figure for an educational tutoring pipeline, flat vector style, white background, compact and publication-ready for IEEE conference paper, no glossy banner, no decorative icons beyond simple document, checklist, and agent symbols, no handwritten arrows, no duplicate labels.
+
+Main title: "Multi-Agent Retrieval (hybrid_fast) in the released implementation"
+
+Left-to-right flow with clear stages:
+1. Raw tutoring sample bundle with short stacked labels only: question, dialogue history, chapter or inline context, rubric, metadata.
+2. Lightweight Regime Router box. Show five compact score badges: s_e evidence, s_c coordination, s_r rubric, s_p planning, s_t tutoring. Add a short footnote under the router: "route computed on raw sample".
+3. Router emits two outputs only: regime and require_retrieval.
+4. Parallel lightweight modules: Planner, Diagnoser, Rubric. Planner -> up to 3 search queries. Diagnoser -> learner state summary: level, goals, style, misconceptions. Rubric -> checklist.
+5. Their outputs merge into a central AgentContext box.
+6. Conditional retrieval branch only when require_retrieval is true. Retrieval stack shown as a clean horizontal chain: word TF-IDF -> char 3-5 gram -> latent SVD -> reranker -> MMR packer. Add tiny note: "up to 4 chunks, 6000-char budget".
+7. AgentContext plus optional retrieved evidence feed one fixed Tutor box.
+8. Optional Critic box below Tutor with dashed arrow.
+9. Dashed fallback retrieval loop from no-grounding draft back to retriever, then one rerun to Tutor.
+10. Final output box at far right: "Tutor response". Tiny note beneath: "TutorEval: prose | EduBench: JSON score, details, feedback"
+
+Use neutral slate for most boxes and one teal accent only for the conditional retrieval path and fallback loop. Solid lines mean default path; dashed lines mean optional or fallback. Make spacing generous, typography clean, and labels short. The figure should look like a serious systems paper diagram, not a product slide.

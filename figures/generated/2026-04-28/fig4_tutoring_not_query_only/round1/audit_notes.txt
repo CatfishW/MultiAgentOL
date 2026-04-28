@@ -1,0 +1,10 @@
+Accepted smoke result qualities:
+- Clear separation between query-only RAG and multi-agent retrieval
+- EduBench displayed as profile-conditioned tutoring ecosystem
+- TutorEval displayed as chapter-grounded diagnostic tutoring
+- Axes and labels are legible enough for reviewer inspection
+
+Risks to watch if we regenerate:
+- Text-to-image may distort exact benchmark names or abbreviations
+- Sample bubbles may drift away from real tasks
+- Left baseline inset can become overly poster-like if prompt is too decorative

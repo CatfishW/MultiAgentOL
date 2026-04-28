@@ -1,0 +1,16 @@
+Publication-quality academic infographic explaining why tutoring is not a query-only retrieval problem. White background, flat vector style, clean conference-paper layout, no children cartoons, no stock photos, no dashboard look.
+
+2x2 conceptual layout with light grid and axis cues.
+
+Horizontal axis label: "Need for external evidence" from low to high.
+Vertical axis label: "Need for personalized learning state" from low to high.
+
+Top-right region: TutorEval shown as "chapter-grounded diagnostic tutoring" with textbook/chapter icon, keypoint checklist, and sample bubbles like "Explain Step 4 of Example 1" and "Is changing the y-intercept a horizontal shift?" Convey high evidence need and moderate-to-high diagnosis need.
+
+Upper-middle / right spread: EduBench shown as a broader tutoring ecosystem with several small labeled bubbles: PLS personalized learning support, PCC personalized content creation, AG grading and feedback, ES emotional support, IP idea provision. Add student profile card icons with fields like level, goals, interests, study habits, weak points. Convey high personalization need and mixed evidence need.
+
+Left side small inset: "Query-only RAG" with a single embedded query arrow going straight to retrieved documents. Add subtle warning text: "good for topic matching, weak for learner-state recovery".
+
+Right side small inset: "Multi-agent retrieval" with planner, diagnoser, rubric modules assembling a tutoring brief before optional retrieval. Add subtle note: "profile-conditioned, rubric-aware, tutoring-specific context assembly".
+
+Use muted gray blocks for the baseline inset and teal accent for the multi-agent inset. Keep labels short and highly legible. The graphic should feel like a serious SMC paper figure, not a poster.

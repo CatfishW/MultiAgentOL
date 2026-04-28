@@ -1,0 +1,22 @@
+Clean IEEE academic infographic on white background, full-width conference paper figure, four vertical comparison panels only, crisp flat vector style, minimal text, no glow, no 3D, no cartoon classroom art.
+
+Title at top: "Controlled comparison of four retrieval mechanisms under a shared tutor/critic backbone"
+
+Panel 1 label: "Classical RAG"
+Panel 2 label: "Multi-Agent (no retrieval)"
+Panel 3 label: "Single-Agent (no retrieval)"
+Panel 4 label: "Multi-Agent Retrieval (ours)"
+
+Every panel begins with the same "Student Query / Tutoring Sample" box and ends with the same sized "Tutor" box and small optional "Critic" box. Make it visually obvious that Tutor and Critic are shared across all four mechanisms.
+
+Panel 1: Student Query -> Retriever (always on, labeled retrieve-then-read) -> Tutor -> optional Critic. Neutral gray styling.
+
+Panel 2: Student Query -> Planner, Diagnoser, Rubric modules in parallel -> merge -> Tutor -> optional Critic. No retriever. Small note: "coordination replaces retrieval". Neutral slate/gray-blue styling.
+
+Panel 3: Student Query -> Tutor -> optional Critic. No planner, no diagnoser, no rubric, no retriever. Muted faded gray styling to signal ablation floor.
+
+Panel 4: Student Query -> Planner, Diagnoser, Rubric modules in parallel -> small diamond labeled "Retrieval gate" -> dashed conditional branch to Retriever and solid bypass branch -> both merge into Tutor -> dashed optional Critic -> dashed fallback retrieval loop back to Retriever -> back to Tutor. Use a single teal accent only for this proposed panel.
+
+Bottom strip across all four panels: "Shared tutor/critic backbone, shared corpus, shared reranker, shared response budget"
+
+Use rounded rectangles for modules, diamond for gate, cylinder or simple stacked-doc icon for retriever/corpus, thin black lines, abundant whitespace, typography legible at IEEE two-column scale. Reject anything that looks like a slide deck, marketing graphic, or dashboard.
