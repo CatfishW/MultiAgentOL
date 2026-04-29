@@ -28,8 +28,8 @@
 \setlength{\abovecaptionskip}{3pt}
 \setlength{\belowcaptionskip}{1pt}
 \title{\LARGE \bf
-Multi-Agent Retrieval for Learning-State-Aware\\
-Educational Tutoring
+MARLET: Multi-Agent Retrieval for\\
+Learning-State-Aware Educational Tutoring
 }
 
 \author{Anonymous Authors%
@@ -40,7 +40,7 @@ Educational Tutoring
 \maketitle
 
 \begin{abstract}
-Large language models can generate fluent tutoring responses, but they need grounding that respects both instructional evidence and the learner's current state. Classical retrieval-augmented generation (RAG) grounds generation through a fixed retrieve-then-read controller: the query is matched against a corpus, and the generator reads the returned passages. That design is often insufficient for tutoring, where the same surface question can require different evidence, scaffolding, or rubric constraints for different learners. We propose \textsc{Multi-Agent Retrieval}, a learning-state-aware framework that places a supervisory router, planner, diagnoser, rubric module, retriever, tutor, and critic around a fixed downstream tutor. The framework first builds a tutoring brief from the sample, inferred learning state, and answer criteria; retrieval is then invoked only when the route indicates that external evidence is needed. We validate the framework against classical RAG under matched backbones, corpus, reranker, and response budget on TutorEval and EduBench. The proposed framework improves fixed-tutor quality metrics over classical RAG while using fewer tokens; on EduBench it also reduces latency and backbone-call count. These results support the framework claim: for educational tutoring, grounding should be controlled by pedagogical state and task regime, not by the surface query alone.
+Large language models can generate fluent tutoring responses, but they need grounding that respects both instructional evidence and the learner's current state. Classical retrieval-augmented generation (RAG) grounds generation through a fixed retrieve-then-read controller: the query is matched against a corpus, and the generator reads the returned passages. That design is often insufficient for tutoring, where the same surface question can require different evidence, scaffolding, or rubric constraints for different learners. We propose \textsc{MARLET} (Multi-Agent Retrieval for Learning-State-Aware Educational Tutoring), a framework that places a supervisory router, planner, diagnoser, rubric module, retriever, tutor, and critic around a fixed downstream tutor. The framework first builds a tutoring brief from the sample, inferred learning state, and answer criteria; retrieval is then invoked only when the route indicates that external evidence is needed. We validate the framework against classical RAG under matched backbones, corpus, reranker, and response budget on TutorEval and EduBench. \textsc{MARLET} improves fixed-tutor quality metrics over classical RAG while using fewer tokens; on EduBench it also reduces latency and backbone-call count. These results support the framework claim: for educational tutoring, grounding should be controlled by pedagogical state and task regime, not by the surface query alone.
 \end{abstract}
 
 \section{Introduction}
@@ -52,13 +52,13 @@ Educational tutoring is more complex than factual question answering. A student'
 
 Classical RAG can be manually enriched by appending learner state, dialogue history, grading criteria, and task constraints to the query. The difficulty is that a single retrieval query must then do several jobs at once: represent the topic, learner level, suspected misconception, instructional goal, and response constraints. This can blur search intent, retrieve evidence for the wrong instructional level, and make it hard to inspect why retrieval was or was not used.
 
-We propose \textsc{Multi-Agent Retrieval} as an augmented RAG framework for this setting. Instead of letting the retriever act as the top-level controller, a supervisory router first identifies the tutoring regime and decides whether retrieval is needed. A planner scopes the search intent, a diagnoser summarizes visible learning state, and a rubric module states what the answer must satisfy. These modules run before the fixed tutor writes, so the retriever becomes a conditional tool inside an inspectable tutoring controller rather than a mandatory first step.
+We propose \textsc{MARLET} (Multi-Agent Retrieval for Learning-State-Aware Educational Tutoring) as an augmented RAG framework for this setting. Instead of letting the retriever act as the top-level controller, a supervisory router first identifies the tutoring regime and decides whether retrieval is needed. A planner scopes the search intent, a diagnoser summarizes visible learning state, and a rubric module states what the answer must satisfy. These modules run before the fixed tutor writes, so the retriever becomes a conditional tool inside an inspectable tutoring controller rather than a mandatory first step.
 
 The experiments are designed to validate the framework, not to present a broad model leaderboard. We therefore compare the proposed framework with a classical retrieve-then-read RAG baseline while holding the backbone, corpus, reranker, response cap, tutor, and critic fixed. The baseline is not meant to exhaust every possible prompt-augmented RAG variant; it tests the standard design in which retrieval is driven before an explicit learner-state, plan, and rubric brief is constructed.
 
-Educational tutoring includes explanation, misconception diagnosis, rubric-based scoring, and next-step feedback. These subproblems require different grounding signals, so retrieval recall alone is not enough~\cite{macina2025mathtutorbench,srinivasa2025tutorbench}. Our validation on TutorEval and EduBench shows that the same tutor scores higher when fed context assembled by \textsc{Multi-Agent Retrieval}; on EduBench it also reduces latency and backbone calls.
+Educational tutoring includes explanation, misconception diagnosis, rubric-based scoring, and next-step feedback. These subproblems require different grounding signals, so retrieval recall alone is not enough~\cite{macina2025mathtutorbench,srinivasa2025tutorbench}. Our validation on TutorEval and EduBench shows that the same tutor scores higher when fed context assembled by \textsc{MARLET}; on EduBench it also reduces latency and backbone calls.
 
-\noindent\textbf{Contributions.} (i) We propose a learning-state-aware multi-agent retrieval framework for educational tutoring, with an explicit supervisory router, planner, diagnoser, rubric module, conditional retriever, tutor, and critic. (ii) We formalize the router and retrieval gate as transparent, training-free controls that determine when learner state, rubric constraints, and external evidence should enter the tutoring brief. (iii) We validate the framework against classical RAG on two educational tutoring benchmarks under shared backbone, corpus, reranker, and response budget, reporting both tutoring quality and resource trade-offs.
+\noindent\textbf{Contributions.} (i) We propose \textsc{MARLET}, a learning-state-aware multi-agent retrieval framework for educational tutoring, with an explicit supervisory router, planner, diagnoser, rubric module, conditional retriever, tutor, and critic. (ii) We formalize the router and retrieval gate as transparent, training-free controls that determine when learner state, rubric constraints, and external evidence should enter the tutoring brief. (iii) We validate the framework against classical RAG on two educational tutoring benchmarks under shared backbone, corpus, reranker, and response budget, reporting both tutoring quality and resource trade-offs.
 
 \section{Related Work}
 
@@ -71,7 +71,7 @@ Recent educational work shows that tutoring quality requires more than answer ac
 \section{Methodology}
 \label{sec:methodology}
 
-The proposed framework, \textsc{Multi-Agent Retrieval}, is a tutoring pipeline organized around a supervisory controller. For each sample, the controller reads the question, dialogue, context text, rubric items, and metadata, then assigns a pedagogical regime and decides which modules should run. The hybrid pipeline then builds a tutoring brief before answer generation: the planner states the instructional goal and search intent, the diagnoser summarizes visible learning state, the rubric module lists answer criteria, and retrieval is invoked only when external evidence is needed. Fig.~\ref{fig:framework} sketches this pipeline.
+The proposed framework, \textsc{MARLET}, is a tutoring pipeline organized around a supervisory controller. For each sample, the controller reads the question, dialogue, context text, rubric items, and metadata, then assigns a pedagogical regime and decides which modules should run. The hybrid pipeline then builds a tutoring brief before answer generation: the planner states the instructional goal and search intent, the diagnoser summarizes visible learning state, the rubric module lists answer criteria, and retrieval is invoked only when external evidence is needed. Fig.~\ref{fig:framework} sketches this pipeline.
 
 This separation matters because tutoring failures arise from different sources. Sometimes the missing input is external evidence, such as the relevant paragraph in a long chapter. Sometimes it is pedagogical state, such as whether the learner needs a first-principles explanation, a misconception correction, or a rubric-aligned score. A retrieve-first controller treats these cases too similarly. Our framework makes the tutoring brief explicit before answer generation.
 
@@ -127,7 +127,7 @@ Here $s_e(x)$ is the evidence score and $\mathrm{regime}(x)=\mathrm{EG}$ means e
 \begin{figure*}[t]
 \centering
 \includegraphics[width=0.90\textwidth]{figures/MultiAgentMain.png}
-\caption{Main framework of \textsc{Multi-Agent Retrieval}. The supervisory router scores the sample, assigns the pedagogical regime, and decides whether retrieval is needed before planner, diagnoser, and rubric modules assemble the tutoring brief.}
+\caption{Main framework of \textsc{MARLET}. The supervisory router scores the sample, assigns the pedagogical regime, and decides whether retrieval is needed before planner, diagnoser, and rubric modules assemble the tutoring brief.}
 \label{fig:framework}
 \end{figure*}
 
@@ -180,13 +180,13 @@ For TutorEval, we report tutor-hit as the mean key-point credit over the $K$ exp
 
 We validate the framework on two public educational benchmarks. TutorEval~\cite{chevalier2024sciencetutors}, released with LM-Science-Tutor, contains 834 expert-written science tutoring questions in its open-book setting. Each question is paired with a long STEM chapter and expert teaching key points, so the system must explain, disambiguate, and address likely misconceptions while staying chapter-grounded. EduBench~\cite{xu2025edubench} covers nine educational scenarios across student- and teacher-oriented tasks, including question answering, error correction, personalized support, emotional support, grading, teaching-material generation, and personalized content creation. Its rows contain prompts, scenario metadata, and reference model predictions; our adapter converts those references into consensus-style supervision through score statistics and rubric terms. For reporting, we use the 1562-example four-way EduBench intersection completed by all forced architectures.
 
-The primary validation compares classical RAG with \textsc{Multi-Agent Retrieval} under matched \textsc{Qwen3.5-4B} infrastructure, reasoning budget 512, temperature 0.15, response cap 900, shared corpus, shared reranker, and fixed retrieval hyperparameters. Both systems run on the same benchmark samples. In classical RAG, retrieval is driven by the raw question before tutoring; the tutor then receives ordinary sample fields and retrieved chunks, but not the planner, diagnoser, or rubric brief. This is the intended contrast: the baseline tests retrieve-then-read grounding, while the proposed framework tests explicit context construction plus conditional retrieval.
+The primary validation compares classical RAG with \textsc{MARLET} under matched \textsc{Qwen3.5-4B} infrastructure, reasoning budget 512, temperature 0.15, response cap 900, shared corpus, shared reranker, and fixed retrieval hyperparameters. Both systems run on the same benchmark samples. In classical RAG, retrieval is driven by the raw question before tutoring; the tutor then receives ordinary sample fields and retrieved chunks, but not the planner, diagnoser, or rubric brief. This is the intended contrast: the baseline tests retrieve-then-read grounding, while the proposed framework tests explicit context construction plus conditional retrieval.
 
-The validation is fair at the infrastructure level but intentionally not identical at the context-construction level. Giving classical RAG the planner, diagnoser, and rubric outputs would convert it into the proposed framework. Conversely, withholding those outputs from \textsc{Multi-Agent Retrieval} would remove the claimed contribution. We therefore report quality and resource outcomes together: a useful framework should improve tutoring behavior without hiding an unacceptable token, latency, or backbone-call cost.
+The validation is fair at the infrastructure level but intentionally not identical at the context-construction level. Giving classical RAG the planner, diagnoser, and rubric outputs would convert it into the proposed framework. Conversely, withholding those outputs from \textsc{MARLET} would remove the claimed contribution. We therefore report quality and resource outcomes together: a useful framework should improve tutoring behavior without hiding an unacceptable token, latency, or backbone-call cost.
 
 \subsection{Framework Validation}
 
-Tables~\ref{tab:tutoreval_results} and~\ref{tab:edubench_results} report paired matched-sample comparisons with bootstrap confidence intervals and permutation p-values. On TutorEval, \textsc{Multi-Agent Retrieval} raises Token-F1 by $+0.004$, tutor-hit by $+0.019$, and rubric coverage by $+0.026$, while using 484 fewer tokens. Latency trends lower but is not reliable ($p{=}0.21$). Because the forced TutorEval harness computes route metadata before architecture forcing, the proposed framework retrieves on every TutorEval sample; this result therefore tests whether planning, diagnosis, and rubric context help even when chapter evidence is always consulted.
+Tables~\ref{tab:tutoreval_results} and~\ref{tab:edubench_results} report paired matched-sample comparisons with bootstrap confidence intervals and permutation p-values. On TutorEval, \textsc{MARLET} raises Token-F1 by $+0.004$, tutor-hit by $+0.019$, and rubric coverage by $+0.026$, while using 484 fewer tokens. Latency trends lower but is not reliable ($p{=}0.21$). Because the forced TutorEval harness computes route metadata before architecture forcing, the proposed framework retrieves on every TutorEval sample; this result therefore tests whether planning, diagnosis, and rubric context help even when chapter evidence is always consulted.
 
 \begin{table}[t]
 \caption{TutorEval quality validation ($n{=}834$). Higher is better.}
@@ -210,7 +210,7 @@ $\Delta$ & $+0.006$ & $+0.004^{\star}$ & $+0.019^{\star\star}$ & $+0.026^{\star\
 
 On TutorEval, the 95\% confidence intervals are $[0.0003,0.007]$ for Token-F1, $[0.006,0.032]$ for tutor-hit, and $[0.007,0.045]$ for rubric coverage. The framework also reduces average latency from 51\,903 to 49\,113 ms, tokens from 3\,975 to 3\,490, and backbone calls from 1.84 to 1.56.
 
-On the EduBench intersection, multi-agent retrieval improves EB12D by $+0.031$ and rubric coverage by $+0.186$, while reducing latency by $5{,}923$\,ms, tokens by $1{,}794$, and backbone calls by 0.49. Classical RAG keeps a small EduAlign edge, but the frozen hybrid skips retrieval on every EduBench sample, so these prompts are usually better served by learner- and rubric-centered coordination than by external lookup.
+On the EduBench intersection, \textsc{MARLET} improves EB12D by $+0.031$ and rubric coverage by $+0.186$, while reducing latency by $5{,}923$\,ms, tokens by $1{,}794$, and backbone calls by 0.49. Classical RAG keeps a small EduAlign edge, but the frozen hybrid skips retrieval on every EduBench sample, so these prompts are usually better served by learner- and rubric-centered coordination than by external lookup.
 
 \begin{table}[t]
 \caption{EduBench quality validation ($n{=}1562$). Higher is better.}
@@ -235,7 +235,7 @@ For EduBench, the 95\% confidence intervals are $[0.027,0.036]$ for EB12D, $[0.1
 
 The framework can use more modules than classical RAG, so resource cost must be reported. In these runs, scoped planner queries and the retrieval gate reduce token use; retrieval-free diagnostics remain unsuitable as main baselines for TutorEval because chapter evidence is required. Two executed 4B ablations on a shared TutorEval slice ($n{=}100$) further isolate the mechanism: forcing retrieval hurts Token-F1 ($-0.003$), tutor-hit ($-0.015$), and rubric coverage ($-0.025$), while disabling the shared critic shows that the main gain does not come from critic revision. On a pinned \textsc{Qwen3.5-27B-FP8} backbone, TutorEval deltas collapse near zero, but hybrid remains more efficient; EduBench 27B repeats the pattern with EB12D $+0.032$, rubric $+0.210$, tokens $-1{,}861$, and latency $-22{,}070$\,ms.
 
-These results clarify the intended use of the framework. \textsc{Multi-Agent Retrieval} is not a universal replacement for retrieval; it is a controller for deciding what grounding a tutoring sample needs. Chapter-grounded samples still need evidence, but learner-profile, rubric, or scenario-heavy samples may be better served by learner-state and answer-criteria summaries than by mandatory topical retrieval. The framework therefore gives reviewers an inspectable decision path: which regime was assigned, why retrieval was or was not requested, which criteria were passed to the tutor, and how the critic checked the draft.
+These results clarify the intended use of the framework. \textsc{MARLET} is not a universal replacement for retrieval; it is a controller for deciding what grounding a tutoring sample needs. Chapter-grounded samples still need evidence, but learner-profile, rubric, or scenario-heavy samples may be better served by learner-state and answer-criteria summaries than by mandatory topical retrieval. The framework therefore gives reviewers an inspectable decision path: which regime was assigned, why retrieval was or was not requested, which criteria were passed to the tutor, and how the critic checked the draft.
 
 \section{Limitations}
 \label{sec:limitations}
@@ -245,7 +245,7 @@ The study validates a framework rather than a final tutoring product. It fixes b
 \section{Conclusion}
 \label{sec:conclusion}
 
-\textsc{Multi-Agent Retrieval} reframes grounding for educational tutoring as supervised context construction rather than query-only passage lookup. Under shared infrastructure, it improves fixed-tutor quality and efficiency over classical RAG, showing that learner state, rubric constraints, and conditional evidence should be coordinated before the tutor writes.
+\textsc{MARLET} reframes grounding for educational tutoring as supervised context construction rather than query-only passage lookup. Under shared infrastructure, it improves fixed-tutor quality and efficiency over classical RAG, showing that learner state, rubric constraints, and conditional evidence should be coordinated before the tutor writes.
 
 \begingroup
 \fontsize{7.2}{7.7}\selectfont
