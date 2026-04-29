@@ -81,9 +81,10 @@ The design principle is simple: retrieve when external evidence is genuinely nee
 \caption{Framework components and responsibilities.}
 \label{tab:framework_components}
 \centering
-\scriptsize
-\renewcommand{\arraystretch}{1.05}
-\begin{tabular}{p{0.22\columnwidth}p{0.66\columnwidth}}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.02}
+\begin{tabular}{p{0.25\columnwidth}p{0.63\columnwidth}}
 \toprule
 Component & Responsibility \\
 \midrule
@@ -99,21 +100,29 @@ Tutor/Critic & Generates the final response and checks evidence markers, rubric 
 
 \subsection{Supervisory Routing}
 
-The supervisor is the framework's decision-making component. It estimates whether a sample primarily needs external evidence, pedagogical coordination, rubric feedback, planning, or dialogue-sensitive tutoring. The reported runs use transparent heuristics rather than a trained router. For an adapter-normalized sample $x$, the router first builds a normalized text blob $b(x)$ from the question, optional context, rubric text, and dialogue. For each cue set $G$, it computes the fraction of cue phrases found in that blob:
+The supervisor is the framework's decision-making component. It estimates whether a sample primarily needs external evidence, pedagogical coordination, rubric feedback, planning, or dialogue-sensitive tutoring. The reported runs use transparent heuristics rather than a trained router. For an adapter-normalized sample $x$, the router first builds a normalized text blob $b(x)$ from the question, optional context, rubric text, and dialogue.
+
+The first routing quantity is a cue-hit rate. For each cue phrase $u$, define $m(u,x)=1$ if $u$ appears in $b(x)$, and $m(u,x)=0$ otherwise. For a cue family $G$, the router computes
 \begin{equation}
-\kappa_G(x)=\frac{1}{|G|}\sum_{u\in G}\mathbb{1}[u \subseteq b(x)],
+\kappa_G(x)=\frac{\sum_{u\in G}m(u,x)}{|G|},
 \end{equation}
-where $u$ is a cue phrase and $\mathbb{1}[\cdot]$ is one when the phrase is present. The cue families are evidence ($E$), coordination ($C$), rubric ($R$), planning ($P$), and tutoring ($T$). Each family score is
+where $|G|$ is the number of cue phrases in that family. Thus $\kappa_G(x)$ is just the fraction of cues that were observed: $0$ means no cue matched, and $1$ means every cue matched. The cue families are evidence ($E$), coordination ($C$), rubric ($R$), planning ($P$), and tutoring ($T$).
+
+The cue-hit rate is then converted into a routing score:
 \begin{equation}
-s_j(x)=\operatorname{clip}_{[0,1]}\!\left(\kappa_j(x)+b_j(x)+\pi_j(d_x)\right),
+s_j(x)=\min\{1,\max\{0,\kappa_j(x)+B_j(x)+P_j(d_x)\}\},
 \end{equation}
-where $j\in\{e,c,r,p,t\}$, $b_j(x)$ is a small bonus for visible fields such as context, image, rubric, or dialogue length, and $\pi_j(d_x)$ is a prior for dataset label $d_x$. For example, rubric presence adds to the rubric score, dialogue length adds to the tutoring score, and evidence-grounded datasets add to the evidence score. These constants are frozen defaults rather than tuned evaluation-set parameters.
+where $j\in\{e,c,r,p,t\}$ corresponds to the five families above. The term $B_j(x)$ is a field bonus from visible sample structure: context or image fields increase the evidence score, rubric fields increase the rubric score, and longer dialogue increases the tutoring score. The term $P_j(d_x)$ is a dataset prior from the adapter label $d_x$; for example, evidence-grounded datasets receive an evidence prior. The outer $\min/\max$ only keeps the score between $0$ and $1$. These scores are not probabilities; they are transparent control signals used to decide which modules should run.
 
 The router then assigns a pedagogical regime: lesson planning, rubric feedback, adaptive tutoring, or evidence-grounded reasoning. If the adapter supplies a regime hint, the supervisor uses it; otherwise it chooses the regime with the strongest corresponding score subject to fixed thresholds. Retrieval is controlled by the binary gate
 \begin{equation}
-g(x)=\mathbb{1}[s_e(x)\ge 0.35 \;\lor\; R(x)=\text{EG}],
+g(x)=
+\begin{cases}
+1, & s_e(x)\ge 0.35\ \text{or}\ R(x)=\mathrm{EG},\\
+0, & \text{otherwise}.
+\end{cases}
 \end{equation}
-where $R(x)=\text{EG}$ means evidence-grounded reasoning. If $g(x)=0$, the framework still builds the tutoring brief but skips retrieval. If no chunks have been retrieved and the evidence score is at least $0.45$, one fallback retrieval pass is issued using the raw question. Thus the router constrains both how much pedagogical coordination to activate and whether the retriever should be used.
+Here $s_e(x)$ is the evidence score and $R(x)=\mathrm{EG}$ means evidence-grounded reasoning. In words, retrieval is requested when the sample looks evidence-heavy or the regime itself is evidence-grounded. If $g(x)=0$, the framework still builds the tutoring brief but skips retrieval. If no chunks have been retrieved and the evidence score is at least $0.45$, one fallback retrieval pass is issued using the raw question. Thus the router constrains both how much pedagogical coordination to activate and whether the retriever should be used.
 
 \begin{figure*}[t]
 \centering
@@ -130,7 +139,7 @@ The tutor itself is dataset-aware but architecturally fixed. Its prompt includes
 
 \subsection{Hybrid retrieval, reranking, and context packing}
 
-The retrieval stack is intentionally lightweight and also follows the codebase exactly. For a query $q$ and chunk $c$, the hybrid index computes
+The retrieval stack is intentionally lightweight and also follows the codebase exactly. The following equations are scoring rules, not learned models: a larger score means the chunk is ranked higher for the current query. For a query $q$ and candidate chunk $c$, the hybrid index first computes
 \begin{equation}
 \begin{aligned}
 \mathrm{score}_0
@@ -138,7 +147,7 @@ The retrieval stack is intentionally lightweight and also follows the codebase e
 &\quad+0.25\,k_{\ell}+\beta,
 \end{aligned}
 \end{equation}
-where all terms are computed for the current $(q,c)$ pair. Here $k_w$ is word-level TF--IDF similarity, $k_{ch}$ is character $3$--$5$ gram TF--IDF similarity, and $k_{\ell}$ is the similarity in the truncated-SVD latent space. The query boost $\beta$ adds $0.01$ per overlapping title token and, in citation-seeking mode, an additional $0.025$ for chunks whose source type is \emph{reference}, \emph{lecture}, or \emph{document}. When multiple planner queries are issued, the retriever merges all returned candidates and deduplicates them by chunk identifier before reranking.
+where all terms are computed for the current $(q,c)$ pair. Here $k_w$ is word-level TF--IDF similarity, $k_{ch}$ is character $3$--$5$ gram TF--IDF similarity, and $k_{\ell}$ is the similarity in the truncated-SVD latent space. The weights state how much the released retriever trusts each signal: word similarity contributes most, latent semantic similarity is second, and character similarity helps with spelling variants and short phrases. The query boost $\beta$ adds $0.01$ per overlapping title token and, in citation-seeking mode, an additional $0.025$ for chunks whose source type is \emph{reference}, \emph{lecture}, or \emph{document}. When multiple planner queries are issued, the retriever merges all returned candidates and deduplicates them by chunk identifier before reranking.
 
 In the released paper configuration, no trained reranker is loaded, so the heuristic reranker score is
 \begin{equation}
@@ -148,12 +157,14 @@ In the released paper configuration, no trained reranker is loaded, so the heuri
 &\quad+0.06\,m_p+0.05\,o_n+0.04\,\rho,
 \end{aligned}
 \end{equation}
-where all terms are again computed for the current $(q,c)$ pair; $o_t$, $o_h$, $m_p$, and $o_n$ denote token overlap, title overlap, exact phrase-match score, and numeric overlap, and $\rho$ is a brevity prior. Once planner queries are merged, reranking remains question-centric and does not consume the learner summary directly. Final context packing uses maximum marginal relevance:
+where all terms are again computed for the current $(q,c)$ pair. The variables $o_t$, $o_h$, $m_p$, and $o_n$ denote token overlap, title overlap, exact phrase-match score, and numeric overlap, and $\rho$ is a brevity prior. This reranker favors chunks that match the question text, title, exact phrases, and numbers while mildly preferring concise chunks. Once planner queries are merged, reranking remains question-centric and does not consume the learner summary directly.
+
+Final context packing balances relevance against redundancy:
 \begin{equation}
 c^\star=\arg\max_{c\in \mathcal{C}\setminus S}
 \lambda\,\mathrm{score}_1(q,c)-(1-\lambda)\max_{c'\in S}\mathrm{overlap}(c,c'),
 \end{equation}
-where $c^\star$ is the next selected chunk, $\mathcal{C}$ is the reranked candidate pool, $S$ is the set of already packed chunks, and $\mathrm{overlap}(c,c')$ is the redundancy term between two chunks. With $\lambda=0.68$, a four-chunk cap, and a $6000$-character context budget, this keeps the comparison focused on retrieval quality rather than on simply enlarging the context window.
+where $c^\star$ is the next selected chunk, $\mathcal{C}$ is the reranked candidate pool, $S$ is the set of already packed chunks, and $\mathrm{overlap}(c,c')$ is the redundancy term between two chunks. The first term rewards relevance to the query; the second term penalizes selecting another chunk that repeats content already in $S$. With $\lambda=0.68$, a four-chunk cap, and a $6000$-character context budget, this keeps the comparison focused on retrieval quality rather than on simply enlarging the context window.
 
 \subsection{Evaluation protocol}
 
@@ -178,49 +189,49 @@ The validation is fair at the infrastructure level but intentionally not identic
 Tables~\ref{tab:tutoreval_results} and~\ref{tab:edubench_results} report paired matched-sample comparisons with bootstrap confidence intervals and permutation p-values. On TutorEval, \textsc{Multi-Agent Retrieval} raises Token-F1 by $+0.004$, tutor-hit by $+0.019$, and rubric coverage by $+0.026$, while using 484 fewer tokens. Latency trends lower but is not reliable ($p{=}0.21$). Because the forced TutorEval harness computes route metadata before architecture forcing, the proposed framework retrieves on every TutorEval sample; this result therefore tests whether planning, diagnosis, and rubric context help even when chapter evidence is always consulted.
 
 \begin{table}[t]
-\caption{TutorEval validation ($n{=}834$). Higher is better except cost.}
+\caption{TutorEval quality validation ($n{=}834$). Higher is better.}
 \label{tab:tutoreval_results}
 \centering
-\scriptsize
-\renewcommand{\arraystretch}{0.92}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{lrrrrrrr}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.06}
+\begin{tabular}{lrrrr}
 \toprule
-Method & Comp. & Tok-F1 & TE Hit & Rubric & Lat. & Tokens & Calls \\
+Method & Comp. & Tok-F1 & TE Hit & Rubric \\
 \midrule
-Classical RAG & 0.377 & 0.112 & 0.938 & 0.919 & 51\,903 & 3\,975 & 1.84 \\
-Ours & \textbf{0.383} & \textbf{0.115} & \textbf{0.957} & \textbf{0.944} & \textbf{49\,113} & \textbf{3\,490} & \textbf{1.56} \\
-$\Delta$ & $+0.006$ & $+0.004^{\star}$ & $+0.019^{\star\star}$ & $+0.026^{\star\star}$ & $-2{,}790$ & $-484^{\star\star\star}$ & $-0.28^{\star\star\star}$ \\
-95\% CI & -- & $[0.0003,0.007]$ & $[0.006,0.032]$ & $[0.007,0.045]$ & $[-7076,1534]$ & $[-558,-410]$ & $[-0.31,-0.24]$ \\
+Classical RAG & 0.377 & 0.112 & 0.938 & 0.919 \\
+Ours & \textbf{0.383} & \textbf{0.115} & \textbf{0.957} & \textbf{0.944} \\
+$\Delta$ & $+0.006$ & $+0.004^{\star}$ & $+0.019^{\star\star}$ & $+0.026^{\star\star}$ \\
 \bottomrule
-\end{tabular}%
-}
+\end{tabular}
 \end{table}
 
 \subsection{Trade-offs and ablations}
 
+On TutorEval, the 95\% confidence intervals are $[0.0003,0.007]$ for Token-F1, $[0.006,0.032]$ for tutor-hit, and $[0.007,0.045]$ for rubric coverage. The framework also reduces average latency from 51\,903 to 49\,113 ms, tokens from 3\,975 to 3\,490, and backbone calls from 1.84 to 1.56.
+
 On the EduBench intersection, multi-agent retrieval improves EB12D by $+0.031$ and rubric coverage by $+0.186$, while reducing latency by $5{,}923$\,ms, tokens by $1{,}794$, and backbone calls by 0.49. Classical RAG keeps a small EduAlign edge, but the frozen hybrid skips retrieval on every EduBench sample, so these prompts are usually better served by learner- and rubric-centered coordination than by external lookup.
 
 \begin{table}[t]
-\caption{EduBench validation ($n{=}1562$). Higher is better except cost.}
+\caption{EduBench quality validation ($n{=}1562$). Higher is better.}
 \label{tab:edubench_results}
 \centering
-\scriptsize
-\renewcommand{\arraystretch}{0.92}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{lrrrrrr}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.06}
+\begin{tabular}{lrrr}
 \toprule
-Method & EB12D & Rubric & EduAlign & Lat. & Tokens & Calls \\
+Method & EB12D & Rubric & EduAlign \\
 \midrule
-Classical RAG & 0.367 & 0.705 & \textbf{0.166} & 19\,828 & 4\,020 & 1.97 \\
-Ours & \textbf{0.398} & \textbf{0.891} & 0.126 & \textbf{13\,904} & \textbf{2\,226} & \textbf{1.48} \\
-$\Delta$ & $+0.031^{\star\star\star}$ & $+0.186^{\star\star\star}$ & $-0.040^{\star\star}$ & $-5{,}923^{\star\star\star}$ & $-1{,}794^{\star\star\star}$ & $-0.49^{\star\star\star}$ \\
-95\% CI & $[0.027,0.036]$ & $[0.174,0.199]$ & $[-0.069,-0.011]$ & $[-6628,-5242]$ & $[-1845,-1738]$ & $[-0.52,-0.46]$ \\
+Classical RAG & 0.367 & 0.705 & \textbf{0.166} \\
+Ours & \textbf{0.398} & \textbf{0.891} & 0.126 \\
+$\Delta$ & $+0.031^{\star\star\star}$ & $+0.186^{\star\star\star}$ & $-0.040^{\star\star}$ \\
 \bottomrule
-\end{tabular}%
-}
-\begin{minipage}{\columnwidth}\scriptsize\vspace{0.2em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$; CIs use 2000 paired bootstraps and p-values use 10000 permutations.\end{minipage}
+\end{tabular}
+\begin{minipage}{\columnwidth}\footnotesize\vspace{0.2em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$; CIs use 2000 paired bootstraps and p-values use 10000 permutations.\end{minipage}
 \end{table}
+
+For EduBench, the 95\% confidence intervals are $[0.027,0.036]$ for EB12D, $[0.174,0.199]$ for rubric coverage, and $[-0.069,-0.011]$ for EduAlign. The cost intervals are also favorable: latency $[-6628,-5242]$ ms, tokens $[-1845,-1738]$, and calls $[-0.52,-0.46]$.
 
 The framework can use more modules than classical RAG, so tokens and calls must be measured rather than assumed. In these runs, scoped planner queries and the retrieval gate reduce total token use rather than increasing it. Retrieval-free diagnostic runs confirm that removing corpus evidence is not a meaningful main baseline for TutorEval, where no-retrieval variants trail chapter-grounded methods. Two executed 4B ablations on a shared TutorEval slice ($n{=}100$) further isolate the mechanism: forcing retrieval hurts Token-F1 ($-0.003$), tutor-hit ($-0.015$), and rubric coverage ($-0.025$), while disabling the shared critic shows that the main gain does not come from critic revision. On a pinned \textsc{Qwen3.5-27B-FP8} backbone, TutorEval deltas collapse near zero, but hybrid remains more efficient; EduBench 27B repeats the pattern with EB12D $+0.032$, rubric $+0.210$, tokens $-1{,}861$, and latency $-22{,}070$\,ms.
 
