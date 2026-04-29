@@ -96,13 +96,13 @@ The released router is evaluated before any tutoring pipeline runs. The framewor
 \begin{equation}
 \kappa_G(x)=\frac{1}{|G|}\sum_{u\in G}\mathbb{1}[u \subseteq b(x)],
 \end{equation}
-for five cue sets: evidence ($E$), coordination ($C$), rubric ($R$), planning ($P$), and tutoring ($T$). Each score follows one common form,
+where $G$ is one cue set, $u$ is one cue phrase, $|G|$ is the number of cues in that set, and $\mathbb{1}[\cdot]$ is the indicator function. We use five cue families: evidence ($E$), coordination ($C$), rubric ($R$), planning ($P$), and tutoring ($T$). Each score follows one common form,
 \begin{equation}
 s_j(x)=\operatorname{clip}_{[0,1]}\!\left(\kappa_j(x)+b_j(x)+\pi_j(d_x)\right),
 \end{equation}
-for $j\in\{e,c,r,p,t\}$, where $b_j(x)$ is a small sample-dependent bonus and $\pi_j(d_x)$ is the dataset prior. In the released configuration, $b_e=0.08\,\mathbb{1}[\text{context}]+0.05\,\mathbb{1}[\text{image}]$, $b_c=0.03\,\mathbb{1}[\text{image}]$, $b_r=0.20\,\mathbb{1}[\text{rubric}]$, $b_p=0$, and $b_t=\min(|h_x|/6,0.5)$. Dataset priors add $+0.15$ to evidence for evidence-grounded datasets, $+0.15$ to coordination and rubric for rubric-feedback datasets, $+0.15$ to coordination and tutoring for adaptive-tutoring datasets, and $(+0.12,+0.18)$ to coordination and planning for lesson-planning datasets. High $s_e$ means the sample looks evidence-grounded; high $s_c$, $s_r$, $s_p$, or $s_t$ indicate increasingly coordination-heavy tutoring, rubric, planning, or dialogue-sensitive cases. These are fixed training-free heuristics: $0.52$, $0.50$, $0.35$, and $0.45$ come from released config defaults, whereas $0.55$, $0.28$, and $0.42$ remain embedded in the router code; none are retuned on the reported evaluation slices.
+for $j\in\{e,c,r,p,t\}$, where the lowercase subscripts correspond to the five cue families above, $\kappa_j(x)$ abbreviates that family's cue-match rate, $b_j(x)$ is a small sample-dependent bonus, $d_x$ is the dataset label of sample $x$, and $\pi_j(d_x)$ is the dataset-prior bonus. In the released configuration, $b_e=0.08\,\mathbb{1}[\text{context}]+0.05\,\mathbb{1}[\text{image}]$, $b_c=0.03\,\mathbb{1}[\text{image}]$, $b_r=0.20\,\mathbb{1}[\text{rubric}]$, $b_p=0$, and $b_t=\min(|h_x|/6,0.5)$, where $|h_x|$ is the number of dialogue turns. Dataset priors add $+0.15$ to evidence for evidence-grounded datasets, $+0.15$ to coordination and rubric for rubric-feedback datasets, $+0.15$ to coordination and tutoring for adaptive-tutoring datasets, and $(+0.12,+0.18)$ to coordination and planning for lesson-planning datasets. High $s_e$ means the sample looks evidence-grounded; high $s_c$, $s_r$, $s_p$, or $s_t$ indicate increasingly coordination-heavy tutoring, rubric, planning, or dialogue-sensitive cases. These are fixed training-free heuristics: $0.52$, $0.50$, $0.35$, and $0.45$ come from released config defaults, whereas $0.55$, $0.28$, and $0.42$ remain embedded in the router code; none are retuned on the reported evaluation slices.
 
-Architecture selection is then a fixed case split:
+Architecture selection is then a fixed case split for the architecture label $A(x)$:
 \begin{equation}
 A(x)=
 \begin{cases}
@@ -112,7 +112,7 @@ A(x)=
 \text{Hybrid} & \text{otherwise.}
 \end{cases}
 \end{equation}
-This case split describes the fallback router's family choices. High evidence with low coordination maps to classical retrieve-then-read, high evidence with high coordination maps to agentic RAG, and high coordination with little evidence maps to multi-agent tutoring without retrieval. Borderline cases fall into the hybrid family. The paper's \textsc{Single-Agent (no retrieval)} baseline is a separate ablation floor and is not produced by the router. The pedagogical regime is resolved separately. If the dataset adapter provides a regime hint, the router uses it directly; otherwise it sets
+This case split describes the fallback router's family choices. High evidence with low coordination maps to classical retrieve-then-read, high evidence with high coordination maps to agentic RAG, and high coordination with little evidence maps to multi-agent tutoring without retrieval. Borderline cases fall into the hybrid family. The paper's \textsc{Single-Agent (no retrieval)} baseline is a separate ablation floor and is not produced by the router. The pedagogical regime label $R(x)$ is resolved separately. If the dataset adapter provides a regime hint, the router uses it directly; otherwise it sets
 \begin{equation}
 R(x)=
 \begin{cases}
@@ -122,7 +122,7 @@ R(x)=
 \text{EG} & \text{otherwise.}
 \end{cases}
 \end{equation}
-where LP, RF, AT, and EG denote lesson planning, rubric feedback, adaptive tutoring, and evidence-grounded reasoning. Within the proposed hybrid family, retrieval is gated by
+where LP, RF, AT, and EG denote lesson planning, rubric feedback, adaptive tutoring, and evidence-grounded reasoning. Within the proposed hybrid family, retrieval is gated by the binary decision $g(x)$:
 \begin{equation}
 g(x)=\mathbb{1}[s_e(x)\ge 0.35 \;\lor\; R(x)=\text{EG}],
 \end{equation}
@@ -161,20 +161,20 @@ In the released paper configuration, no trained reranker is loaded, so the heuri
 &\quad+0.06\,m_p+0.05\,o_n+0.04\,\rho,
 \end{aligned}
 \end{equation}
-where all terms are again computed for the current $(q,c)$ pair; $o_t$, $o_h$, $m_p$, and $o_n$ denote token overlap, title overlap, exact phrase match, and numeric overlap, and $\rho$ is a brevity prior. Once planner queries are merged, reranking remains question-centric and does not consume the learner summary directly. Final context packing uses maximum marginal relevance:
+where all terms are again computed for the current $(q,c)$ pair; $o_t$, $o_h$, $m_p$, and $o_n$ denote token overlap, title overlap, exact phrase-match score, and numeric overlap, and $\rho$ is a brevity prior. Once planner queries are merged, reranking remains question-centric and does not consume the learner summary directly. Final context packing uses maximum marginal relevance:
 \begin{equation}
 c^\star=\arg\max_{c\in \mathcal{C}\setminus S}
 \lambda\,\mathrm{score}_1(q,c)-(1-\lambda)\max_{c'\in S}\mathrm{overlap}(c,c'),
 \end{equation}
-with $\lambda=0.68$, a four-chunk cap, and a $6000$-character context budget. This keeps the comparison focused on retrieval quality rather than on simply enlarging the context window.
+where $c^\star$ is the next selected chunk, $\mathcal{C}$ is the reranked candidate pool, $S$ is the set of already packed chunks, and $\mathrm{overlap}(c,c')$ is the redundancy term between two chunks. With $\lambda=0.68$, a four-chunk cap, and a $6000$-character context budget, this keeps the comparison focused on retrieval quality rather than on simply enlarging the context window.
 
 \subsection{Evaluation protocol}
 
 Evaluation is dataset-aware, but the reported metrics are internal automatic proxies implemented in the released evaluator rather than official benchmark scoring scripts. The headline table's composite score (\textit{Comp.}) is a paper-level weighted summary from the released analysis pipeline, reported only as a convenience overview; we interpret the task-specific metrics directly. Token-F1 is the token-overlap F1 between the model answer and the benchmark reference answer. Rubric coverage is the fraction of rubric items the answer covers, using either near-verbatim phrase match or sufficiently strong token overlap anchored by a content-bearing token. Latency, total tokens, and backbone-call count capture inference cost, and backbone calls correspond to the released system's \texttt{llm\_call\_count}.
 
-For EduBench, we additionally report EB12D, the mean over 12 rubric-oriented signals spanning scenario adaptation, factual reasoning, and pedagogical application. Those signals reward output-format compliance, supportive but non-negative tone, relevance to the question, use of scenario elements from the sample, alignment with the benchmark score, domain-knowledge grounding, reasoning quality, error identification, clarity, motivational guidance, personalization, and higher-order prompting. We report EduAlign as $1-|s(y)-\bar{s}|/100$, where $s(y)$ is the score extracted from the model's JSON output and $\bar{s}$ is the benchmark reference score.
+For EduBench, we additionally report EB12D, the mean over 12 rubric-oriented signals spanning scenario adaptation, factual reasoning, and pedagogical application. Those signals reward output-format compliance, supportive but non-negative tone, relevance to the question, use of scenario elements from the sample, alignment with the benchmark score, domain-knowledge grounding, reasoning quality, error identification, clarity, motivational guidance, personalization, and higher-order prompting. We report EduAlign as $1-|s(y)-\bar{s}|/100$, where $y$ is the model's JSON output, $s(y)$ is the numeric score extracted from it, and $\bar{s}$ is the benchmark reference score.
 
-For TutorEval, we report tutor-hit as the mean key-point credit over the $K$ expected teaching points, with full credit for explicit coverage, partial credit for moderate token overlap, and zero otherwise. We also track a chapter-grounding proxy by measuring whether the response stays aligned with retrieved evidence when retrieval is used, or with the inline chapter text otherwise. Concretely, EduBench is evaluated as a structured educational-judgment task, whereas TutorEval is evaluated as a chapter-grounded tutoring-response task. In the per-example evaluator outputs, off-profile metrics remain present as zeros; in the paper tables, benchmark-inapplicable columns are simply not shown. The released code also records a workload audit $U=T+160Q+90C+240A+30E$, where $T$ is total tokens, $Q$ retrieval queries, $C$ retrieved chunks, $A$ materialized agent outputs, and $E$ trace events. This score is used only as an efficiency audit, not as a training objective. A retrieval-agnostic corpus-factuality check is supported when a compatible shared index is available, but the archived main comparison predates that audit, so we do not present it as a headline result here.
+For TutorEval, we report tutor-hit as the mean key-point credit over the $K$ expected teaching points, with full credit for explicit coverage, partial credit for moderate token overlap, and zero otherwise. We also track a chapter-grounding proxy by measuring whether the response stays aligned with retrieved evidence when retrieval is used, or with the inline chapter text otherwise. Concretely, EduBench is evaluated as a structured educational-judgment task, whereas TutorEval is evaluated as a chapter-grounded tutoring-response task. In the per-example evaluator outputs, off-profile metrics remain present as zeros; in the paper tables, benchmark-inapplicable columns are simply not shown. The released code also records a workload audit $U=T+160Q_r+90C_r+240N_a+30E_v$, where $T$ is total tokens, $Q_r$ retrieval queries, $C_r$ retrieved chunks, $N_a$ materialized agent outputs, and $E_v$ trace events. This score is used only as an efficiency audit, not as a training objective. A retrieval-agnostic corpus-factuality check is supported when a compatible shared index is available, but the archived main comparison predates that audit, so we do not present it as a headline result here.
 
 
 \section{Experimental Results}
@@ -220,25 +220,25 @@ Multi-Agent Retrieval \emph{(ours)} & \textbf{0.398} & -- & \textbf{0.398} & -- 
 
 \subsection{EduBench intersection and the capacity confound}
 
-On the EduBench intersection, multi-agent retrieval improves EB12D by $+0.031$ and rubric coverage by $+0.186$, while reducing latency by $5{,}923$\,ms, tokens by $1{,}794$, and backbone calls by 0.49. Classical RAG keeps a small EduAlign edge, but retrieval is skipped on every EduBench sample in the frozen run, indicating that these prompts are usually better served by learner- and rubric-centered coordination than by external lookup. The hybrid therefore behaves almost identically to retrieval-free multi-agent coordination on EduBench ($\Delta_{\text{EB12D}}=+0.001$, $p{=}0.61$) while clearly outperforming classical RAG.
+On the EduBench intersection, multi-agent retrieval improves EB12D by $+0.031$ and rubric coverage by $+0.186$, while reducing latency by $5{,}923$\,ms, tokens by $1{,}794$, and backbone calls by 0.49. Classical RAG keeps a small EduAlign edge, but the frozen hybrid skips retrieval on every EduBench sample, so these prompts are usually better served by learner- and rubric-centered coordination than by external lookup. Hybrid is therefore nearly identical to retrieval-free multi-agent coordination on EduBench ($\Delta_{\text{EB12D}}=+0.001$, $p{=}0.61$) while clearly outperforming classical RAG.
 
 \subsection{Ablations: attributing the hybrid's gains}
 \label{sec:ablations}
 
-Two executed 4B ablations on a shared TutorEval slice ($n{=}100$) isolate the mechanism. Forcing retrieval hurts Token-F1 ($-0.003$), tutor-hit ($-0.015$), and rubric coverage ($-0.025$) with little token change ($-36$), so the gate is functionally active. Turning the shared critic off improves all scalar metrics and cuts tokens by $27\%$ ($-891$), implying that the hybrid gain does not come from the critic. On a pinned \textsc{Qwen3.5-27B-FP8} backbone, all eight sessions completed: TutorEval score deltas collapse near zero, but hybrid remains more efficient ($-992$ tokens, $-11{,}845$\,ms), and the EduBench pattern repeats on the 27B intersection ($n{=}87$) with EB12D $+0.032$, rubric $+0.210$, tokens $-1{,}861$, and latency $-22{,}070$\,ms.
+Two executed 4B ablations on a shared TutorEval slice ($n{=}100$) isolate the mechanism. Forcing retrieval hurts Token-F1 ($-0.003$), tutor-hit ($-0.015$), and rubric coverage ($-0.025$) with little token change ($-36$), confirming an active gate. Disabling the shared critic improves scalar metrics and cuts tokens by $27\%$ ($-891$), so the hybrid gain does not come from the critic. On a pinned \textsc{Qwen3.5-27B-FP8} backbone, TutorEval deltas collapse near zero, but hybrid remains more efficient ($-992$ tokens, $-11{,}845$\,ms), and the EduBench 27B intersection ($n{=}87$) repeats the pattern: EB12D $+0.032$, rubric $+0.210$, tokens $-1{,}861$, and latency $-22{,}070$\,ms.
 
 \section{Limitations}
 \label{sec:limitations}
 
-Limitations remain. The study fixes backbone, cap, corpus, and retriever but not the full system structure; it reports automatic rather than human evaluation; and it is limited to two open-weight backbones, one shared corpus per benchmark, English-only data, and benchmark outputs rather than downstream learning gains.
+The study fixes backbone, cap, corpus, and retriever but not the full system structure; it reports automatic rather than human evaluation; and it is limited to two open-weight backbones, one shared corpus per benchmark, English-only data, and benchmark outputs rather than downstream learning gains.
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-Under shared infrastructure, multi-agent retrieval improves fixed-tutor quality and efficiency on TutorEval and especially on the EduBench intersection. The gain comes from changing how tutoring context is assembled, not from adding more backbone calls. In educational tutoring, better context assembly before generation can beat classical retrieve-first control.
+Under shared infrastructure, multi-agent retrieval improves fixed-tutor quality and efficiency on TutorEval and especially on the EduBench intersection, showing that better tutoring-context assembly can beat classical retrieve-first control without adding more backbone calls.
 
 \begingroup
-\fontsize{6.2}{6.9}\selectfont
+\fontsize{6.0}{6.5}\selectfont
 \bibliographystyle{IEEEtran}
 \bibliography{references/references}
 \endgroup
