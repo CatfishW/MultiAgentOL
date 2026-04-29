@@ -44,17 +44,17 @@ Large language models can generate fluent tutoring responses, but they need grou
 \end{abstract}
 
 \section{Introduction}
-Large language models (LLMs) are increasingly used as educational tutors because they can generate explanations, answer questions, diagnose errors, and provide feedback in natural language. However, an LLM tutor cannot rely only on its parametric knowledge. Educational responses often need to be grounded in specific instructional materials, such as textbook chapters, course notes, rubrics, worked examples, or learner profiles. Without such grounding, the tutor may produce fluent responses that are misaligned with the curriculum, learning objectives, or student context.
+Large language models (LLMs) are increasingly used as educational tutors because they can generate explanations, answer questions, diagnose errors, and provide feedback in natural language. In this paper, the \emph{tutor} is the LLM-driven response agent that writes the final instructional message, not a human instructor. Such a tutor cannot rely only on its parametric knowledge. Educational responses often need to be grounded in specific instructional materials, such as textbook chapters, course notes, rubrics, worked examples, or learner profiles. Without such grounding, the tutor may produce fluent responses that are misaligned with the curriculum, learning objectives, or student context.
 
 Classical retrieval-augmented generation (RAG) has therefore become the default mechanism for grounding LLM-based tutoring~\cite{lewis2020rag}. In classical RAG, the tutor retrieves evidence primarily from the query representation: the input query is embedded, the top-$k$ most similar educational passages are retrieved, and the LLM generates a response conditioned on those passages. This retrieve-then-read pattern is effective when the query itself determines the needed evidence, but tutoring often requires more than topical similarity.
 
 Educational tutoring is more complex than factual question answering. A student's question is often only a partial signal of what the tutor needs to know. The appropriate response may depend on the learner's current level, goals, weak points, recent confusion, prior dialogue, and likely misconceptions. We refer to this student-specific information as the learner's \emph{personalized learning state}. For example, the query ``How do I solve an ordinary differential equation?'' should trigger different context for a high-school student encountering slope fields than for a college student learning separation of variables or Laplace transforms. A query-only RAG system retrieves topic-similar ODE passages unless the learner state is manually appended to the query.
 
-Appending learner state, dialogue history, grading criteria, and task constraints directly to the retrieval query is not a principled solution. It shifts the burden onto a single query embedding that must compress heterogeneous information: the topic, learner level, suspected misconception, instructional goal, and response constraints. This can blur search intent and produce evidence that satisfies some needs while missing others. Once such state is manually appended and curated, the system is no longer the classical retrieve-then-read controller.
+Classical RAG can be manually enriched by appending learner state, dialogue history, grading criteria, and task constraints to the query. The difficulty is that a single retrieval query must then do several jobs at once: represent the topic, learner level, suspected misconception, instructional goal, and response constraints. This can blur search intent, retrieve evidence for the wrong instructional level, and make it hard to inspect why retrieval was or was not used.
 
-We propose \textsc{Multi-Agent Retrieval} as a framework for this setting. Instead of letting the retriever act as the top-level controller, the framework uses a supervisory router to identify the tutoring regime and decide whether retrieval is needed. A planner scopes the search intent, a diagnoser summarizes visible learning state, a rubric module states what the answer must satisfy, and the retriever becomes a conditional tool rather than a mandatory first step. The downstream tutor and critic remain fixed, so the framework's contribution is the structure that constrains what context reaches the tutor.
+We propose \textsc{Multi-Agent Retrieval} as an augmented RAG framework for this setting. Instead of letting the retriever act as the top-level controller, a supervisory router first identifies the tutoring regime and decides whether retrieval is needed. A planner scopes the search intent, a diagnoser summarizes visible learning state, and a rubric module states what the answer must satisfy. These modules run before the fixed tutor writes, so the retriever becomes a conditional tool inside an inspectable tutoring controller rather than a mandatory first step.
 
-The validation question is whether this framework improves tutoring behavior under fair infrastructure. We therefore compare the proposed framework with classical RAG while holding the backbone, corpus, reranker, response cap, tutor, and critic fixed. This comparison has an important limitation: the classical baseline does not receive the same agent-built tutoring brief, because that brief is part of the proposed framework. The result should therefore be read as a validation of the framework's structural advantage, not as a claim that retrieval alone is obsolete.
+The experiments are designed to validate the framework, not to present a broad model leaderboard. We therefore compare the proposed framework with a classical retrieve-then-read RAG baseline while holding the backbone, corpus, reranker, response cap, tutor, and critic fixed. The baseline is not meant to exhaust every possible prompt-augmented RAG variant; it tests the standard design in which retrieval is driven before an explicit learner-state, plan, and rubric brief is constructed.
 
 Educational tutoring includes explanation, misconception diagnosis, rubric-based scoring, and next-step feedback. These subproblems require different grounding signals, so retrieval recall alone is not enough~\cite{macina2025mathtutorbench,srinivasa2025tutorbench}. Our validation on TutorEval and EduBench shows that the same tutor scores higher when fed context assembled by \textsc{Multi-Agent Retrieval}; on EduBench it also reduces latency and backbone calls.
 
@@ -66,7 +66,7 @@ Classical RAG fixes retrieval as the first controller: the query is matched to p
 
 Agentic RAG and multi-agent LLM systems move beyond a single retrieve-then-read step. ReAct and AutoGen show that tool use and role decomposition can improve complex task execution~\cite{yao2023react,wu2024autogen}. MA-RAG uses multiple agents for query disambiguation, evidence extraction, and answer synthesis on ambiguous or multi-hop QA tasks~\cite{nguyen2025marag}. These systems demonstrate coordination benefits, but their roles are designed for general task execution or ambiguous question answering. They do not define pedagogical regimes, infer visible learner state, or bind the final response to rubric-style answer criteria. As a result, they can coordinate tools without making the educational reason for retrieving, skipping retrieval, or prioritizing rubric context inspectable.
 
-Recent educational work shows that tutoring quality requires more than answer accuracy. AgentTutor builds a multi-turn personalized learning system with learner assessment, strategy selection, reflection, and memory~\cite{liu2026agenttutor}; adaptivity studies show that LLM tutors are sensitive to omitted student-context features and still struggle to match the adaptivity of intelligent tutoring systems~\cite{borchers2025adaptivity}; tutoring benchmarks emphasize pedagogy, mistake diagnosis, guidance quality, and learner support rather than short-form answer accuracy alone~\cite{chevalier2024sciencetutors,xu2025edubench,macina2025mathtutorbench,srinivasa2025tutorbench}. These works define important tutoring requirements, but they do not formulate retrieval as learner-state-aware control. Existing systems may evaluate pedagogy or maintain interaction state, yet they do not provide a transparent rule for when to retrieve, what evidence to retrieve, or how much context should be allocated to evidence versus learner-state and rubric information.
+Recent educational work shows that tutoring quality requires more than answer accuracy. AgentTutor builds a multi-turn personalized learning system with learner assessment, strategy selection, reflection, and memory~\cite{liu2026agenttutor}; adaptivity studies show that LLM tutors are sensitive to omitted student-context features and still struggle to match the adaptivity of intelligent tutoring systems~\cite{borchers2025adaptivity}; tutoring benchmarks emphasize pedagogy, mistake diagnosis, guidance quality, and learner support rather than short-form answer accuracy alone~\cite{chevalier2024sciencetutors,xu2025edubench,macina2025mathtutorbench,srinivasa2025tutorbench}. These works define important tutoring requirements, but they do not formulate retrieval as learner-state-aware control. Existing systems evaluate pedagogy or maintain interaction state, yet they do not expose retrieval as a transparent decision about when to retrieve, what evidence to retrieve, and how much context to allocate to evidence rather than learner-state and rubric information.
 
 \section{Methodology}
 \label{sec:methodology}
@@ -81,7 +81,7 @@ The design principle is simple: retrieve when external evidence is genuinely nee
 \caption{Framework components and responsibilities.}
 \label{tab:framework_components}
 \centering
-\footnotesize
+\small
 \setlength{\tabcolsep}{3pt}
 \renewcommand{\arraystretch}{1.02}
 \begin{tabular}{p{0.25\columnwidth}p{0.63\columnwidth}}
@@ -100,7 +100,7 @@ Tutor/Critic & Generates the final response and checks evidence markers, rubric 
 
 \subsection{Supervisory Routing}
 
-The supervisor is the framework's decision-making component. It estimates whether a sample primarily needs external evidence, pedagogical coordination, rubric feedback, planning, or dialogue-sensitive tutoring. The reported runs use transparent heuristics rather than a trained router. For an adapter-normalized sample $x$, the router first builds a normalized text blob $b(x)$ from the question, optional context, rubric text, and dialogue.
+The supervisor is the framework's decision-making component. It estimates whether a sample primarily needs external evidence, pedagogical coordination, rubric feedback, planning, or dialogue-sensitive tutoring. The reported runs use transparent heuristics rather than a trained router. For a standardized benchmark sample $x$, the router first builds a normalized text blob $b(x)$ from the question, optional context, rubric text, and dialogue.
 
 The first routing quantity is a cue-hit rate. For each cue phrase $u$, define $m(u,x)=1$ if $u$ appears in $b(x)$, and $m(u,x)=0$ otherwise. For a cue family $G$, the router computes
 \begin{equation}
@@ -112,32 +112,32 @@ The cue-hit rate is then converted into a routing score:
 \begin{equation}
 s_j(x)=\min\{1,\max\{0,\kappa_j(x)+B_j(x)+P_j(d_x)\}\},
 \end{equation}
-where $j\in\{e,c,r,p,t\}$ corresponds to the five families above. The term $B_j(x)$ is a field bonus from visible sample structure: context or image fields increase the evidence score, rubric fields increase the rubric score, and longer dialogue increases the tutoring score. The term $P_j(d_x)$ is a dataset prior from the adapter label $d_x$; for example, evidence-grounded datasets receive an evidence prior. The outer $\min/\max$ only keeps the score between $0$ and $1$. These scores are not probabilities; they are transparent control signals used to decide which modules should run.
+where $j\in\{e,c,r,p,t\}$ indexes evidence, coordination, rubric, planning, and tutoring, and $\kappa_j(x)$ means the cue-hit rate for that cue family. The term $B_j(x)$ is a field bonus from visible sample structure: context or image fields increase the evidence score, rubric fields increase the rubric score, and longer dialogue increases the tutoring score. The term $P_j(d_x)$ is a dataset prior from the dataset label $d_x$; for example, evidence-grounded datasets receive an evidence prior. The outer $\min/\max$ only keeps the score between $0$ and $1$. These scores are not probabilities; they are transparent control signals used to decide which modules should run.
 
-The router then assigns a pedagogical regime: lesson planning, rubric feedback, adaptive tutoring, or evidence-grounded reasoning. If the adapter supplies a regime hint, the supervisor uses it; otherwise it chooses the regime with the strongest corresponding score subject to fixed thresholds. Retrieval is controlled by the binary gate
+The router then assigns a pedagogical regime: lesson planning, rubric feedback, adaptive tutoring, or evidence-grounded reasoning. If the adapter supplies a regime hint, the supervisor uses it; otherwise it selects lesson planning when $s_p$ is strongest and at least $0.42$, rubric feedback when $s_r\ge\max\{s_t,0.35\}$, adaptive tutoring when $s_t\ge0.35$, and evidence-grounded reasoning otherwise. Retrieval is controlled by the binary gate
 \begin{equation}
 g(x)=
 \begin{cases}
-1, & s_e(x)\ge 0.35\ \text{or}\ R(x)=\mathrm{EG},\\
+1, & s_e(x)\ge 0.35\ \text{or}\ \mathrm{regime}(x)=\mathrm{EG},\\
 0, & \text{otherwise}.
 \end{cases}
 \end{equation}
-Here $s_e(x)$ is the evidence score and $R(x)=\mathrm{EG}$ means evidence-grounded reasoning. In words, retrieval is requested when the sample looks evidence-heavy or the regime itself is evidence-grounded. If $g(x)=0$, the framework still builds the tutoring brief but skips retrieval. If no chunks have been retrieved and the evidence score is at least $0.45$, one fallback retrieval pass is issued using the raw question. Thus the router constrains both how much pedagogical coordination to activate and whether the retriever should be used.
+Here $s_e(x)$ is the evidence score and $\mathrm{regime}(x)=\mathrm{EG}$ means evidence-grounded reasoning. In words, retrieval is requested when the sample looks evidence-heavy or the regime itself is evidence-grounded. If $g(x)=0$, the framework still builds the tutoring brief but skips retrieval. If no chunks have been retrieved and the evidence score is at least $0.45$, one fallback retrieval pass is issued using the raw question. Thus the router constrains both how much pedagogical coordination to activate and whether the retriever should be used.
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=0.94\textwidth]{figures/MultiAgentMain.png}
-\caption{Main framework of \textsc{Multi-Agent Retrieval}. The supervisory router scores the tutoring sample, assigns the pedagogical regime, and decides whether retrieval is needed. Planner, diagnoser, and rubric modules assemble the tutoring brief before the fixed tutor writes the final response.}
+\includegraphics[width=0.90\textwidth]{figures/MultiAgentMain.png}
+\caption{Main framework of \textsc{Multi-Agent Retrieval}. The supervisory router scores the sample, assigns the pedagogical regime, and decides whether retrieval is needed before planner, diagnoser, and rubric modules assemble the tutoring brief.}
 \label{fig:framework}
 \end{figure*}
 
-\subsection{Specialist agents and shared context}
+\subsection{Specialist Agents and Shared Context}
 
-All implemented mechanisms operate over the same tutoring prompt, inferred learning state, rubric summary, retrieved evidence, and draft answer. \textbf{The tutor and the critic are held constant across all implemented mechanisms}: the tutor writes from the supplied context, and the route-controlled critic may revise the draft; on TutorEval and EduBench it is usually enabled because both adapters stamp adaptive-tutoring regime hints. The only moving parts are the upstream context builders. In the released paper configuration, planner, diagnoser, and rubric are deterministic heuristics. Their roles are asymmetric. The planner alone is retrieval-facing: it emits up to three deduplicated queries from the raw question, extracted key terms, dataset cueing, and the first rubric items. The diagnoser and rubric agent are tutor-facing: they summarize transient learning state and answer criteria for the tutor prompt, but they do not alter retriever scoring. In this release, learning state is inferred from the current question and dialogue rather than from a persistent profile store.
+All implemented mechanisms operate over the same tutoring prompt, inferred learning state, rubric summary, retrieved evidence, and draft answer. \textbf{The tutor and the critic are held constant across all implemented mechanisms}: the tutor writes from the supplied context, and the route-controlled critic may revise the draft when the regime calls for adaptive tutoring. The only moving parts are the upstream context builders. In the reported configuration, planner, diagnoser, and rubric are deterministic heuristics. Their roles are asymmetric. The planner alone is retrieval-facing: it emits up to three deduplicated queries from the raw question, extracted key terms, dataset cueing, and the first rubric items. The diagnoser and rubric module are tutor-facing: they summarize transient learning state and answer criteria for the tutor prompt, but they do not alter retriever scoring. In this release, learning state is inferred from the current question and dialogue rather than from a persistent profile store.
 
-The tutor itself is dataset-aware but architecturally fixed. Its prompt includes the dataset name, question, recent dialogue, inferred learning state, operating plan, rubric summary, and either retrieved evidence or inline benchmark context. It is instructed to be correct, pedagogically useful, concise, and to end with a next step or check-for-understanding when appropriate. Retrieved evidence must be cited with \texttt{[doc\_id]} markers. EduBench consensus rows require a JSON object with a score, scoring details, and personalized feedback; TutorEval and the other tutoring-style profiles use instructional prose. This design isolates the effect of changing the retrieval context while leaving the downstream writer unchanged; personalization reaches retrieval mainly through planner query formulation, not through profile-aware reranking.
+The tutor itself is the LLM-driven agent that produces the final response. It is dataset-aware but architecturally fixed: its prompt includes the dataset name, question, recent dialogue, inferred learning state, operating plan, rubric summary, and either retrieved evidence or inline benchmark context. It is instructed to be correct, pedagogically useful, concise, and to end with a next step or check-for-understanding when appropriate. Retrieved evidence must be cited with \texttt{[doc\_id]} markers. EduBench consensus rows require a JSON object with a score, scoring details, and personalized feedback; TutorEval and the other tutoring-style profiles use instructional prose. This design isolates the effect of changing the retrieval context while leaving the downstream writer unchanged; personalization reaches retrieval mainly through planner query formulation, not through profile-aware reranking.
 
-\subsection{Hybrid retrieval, reranking, and context packing}
+\subsection{Hybrid Retrieval, Reranking, and Context Packing}
 
 The retrieval stack is intentionally lightweight and also follows the codebase exactly. The following equations are scoring rules, not learned models: a larger score means the chunk is ranked higher for the current query. For a query $q$ and candidate chunk $c$, the hybrid index first computes
 \begin{equation}
@@ -166,9 +166,9 @@ c^\star=\arg\max_{c\in \mathcal{C}\setminus S}
 \end{equation}
 where $c^\star$ is the next selected chunk, $\mathcal{C}$ is the reranked candidate pool, $S$ is the set of already packed chunks, and $\mathrm{overlap}(c,c')$ is the redundancy term between two chunks. The first term rewards relevance to the query; the second term penalizes selecting another chunk that repeats content already in $S$. With $\lambda=0.68$, a four-chunk cap, and a $6000$-character context budget, this keeps the comparison focused on retrieval quality rather than on simply enlarging the context window.
 
-\subsection{Evaluation protocol}
+\subsection{Evaluation Protocol}
 
-Evaluation is dataset-aware, but the reported metrics are internal automatic proxies implemented in the released evaluator rather than official benchmark scoring scripts. The headline table's composite score (\textit{Comp.}) is a paper-level weighted summary from the released analysis pipeline, reported only as a convenience overview; we interpret the task-specific metrics directly. Token-F1 is the token-overlap F1 between the model answer and the benchmark reference answer. Rubric coverage is the fraction of rubric items the answer covers, using either near-verbatim phrase match or sufficiently strong token overlap anchored by a content-bearing token. Latency, total tokens, and backbone-call count capture inference cost, and backbone calls correspond to the released system's \texttt{llm\_call\_count}.
+Evaluation is dataset-aware, but the reported metrics are internal automatic proxies implemented in the released evaluator rather than official benchmark scoring scripts. The headline table's composite score (\textit{Comp.}) is a paper-level weighted summary from the released analysis pipeline, reported only as a convenience overview; we interpret the task-specific metrics directly. Token-F1 is the token-overlap F1 between the model answer and the benchmark reference answer. Rubric coverage is the fraction of rubric items the answer covers, using either near-verbatim phrase match or sufficiently strong token overlap anchored by a content-bearing token. Latency, total tokens, and backbone-call count capture inference cost; backbone calls are the logged number of LLM requests needed for one sample.
 
 For EduBench, we additionally report EB12D, the mean over 12 rubric-oriented signals spanning scenario adaptation, factual reasoning, and pedagogical application. Those signals reward output-format compliance, supportive but non-negative tone, relevance to the question, use of scenario elements from the sample, alignment with the benchmark score, domain-knowledge grounding, reasoning quality, error identification, clarity, motivational guidance, personalization, and higher-order prompting. We report EduAlign as $1-|s(y)-\bar{s}|/100$, where $y$ is the model's JSON output, $s(y)$ is the numeric score extracted from it, and $\bar{s}$ is the benchmark reference score.
 
@@ -180,11 +180,11 @@ For TutorEval, we report tutor-hit as the mean key-point credit over the $K$ exp
 
 We validate the framework on two public educational benchmarks. TutorEval~\cite{chevalier2024sciencetutors}, released with LM-Science-Tutor, contains 834 expert-written science tutoring questions in its open-book setting. Each question is paired with a long STEM chapter and expert teaching key points, so the system must explain, disambiguate, and address likely misconceptions while staying chapter-grounded. EduBench~\cite{xu2025edubench} covers nine educational scenarios across student- and teacher-oriented tasks, including question answering, error correction, personalized support, emotional support, grading, teaching-material generation, and personalized content creation. Its rows contain prompts, scenario metadata, and reference model predictions; our adapter converts those references into consensus-style supervision through score statistics and rubric terms. For reporting, we use the 1562-example four-way EduBench intersection completed by all forced architectures.
 
-The primary validation compares classical RAG with \textsc{Multi-Agent Retrieval} under matched \textsc{Qwen3.5-4B} infrastructure, reasoning budget 512, temperature 0.15, response cap 900, shared corpus, shared reranker, and fixed retrieval hyperparameters. Classical RAG retrieves before tutoring and does not receive the agent-built learning-state and rubric brief. This is the intended contrast: the baseline tests retrieve-then-read grounding, while our framework tests supervised context construction plus conditional retrieval.
+The primary validation compares classical RAG with \textsc{Multi-Agent Retrieval} under matched \textsc{Qwen3.5-4B} infrastructure, reasoning budget 512, temperature 0.15, response cap 900, shared corpus, shared reranker, and fixed retrieval hyperparameters. Both systems run on the same benchmark samples. In classical RAG, retrieval is driven by the raw question before tutoring; the tutor then receives ordinary sample fields and retrieved chunks, but not the planner, diagnoser, or rubric brief. This is the intended contrast: the baseline tests retrieve-then-read grounding, while the proposed framework tests explicit context construction plus conditional retrieval.
 
 The validation is fair at the infrastructure level but intentionally not identical at the context-construction level. Giving classical RAG the planner, diagnoser, and rubric outputs would convert it into the proposed framework. Conversely, withholding those outputs from \textsc{Multi-Agent Retrieval} would remove the claimed contribution. We therefore report quality and resource outcomes together: a useful framework should improve tutoring behavior without hiding an unacceptable token, latency, or backbone-call cost.
 
-\subsection{Framework validation}
+\subsection{Framework Validation}
 
 Tables~\ref{tab:tutoreval_results} and~\ref{tab:edubench_results} report paired matched-sample comparisons with bootstrap confidence intervals and permutation p-values. On TutorEval, \textsc{Multi-Agent Retrieval} raises Token-F1 by $+0.004$, tutor-hit by $+0.019$, and rubric coverage by $+0.026$, while using 484 fewer tokens. Latency trends lower but is not reliable ($p{=}0.21$). Because the forced TutorEval harness computes route metadata before architecture forcing, the proposed framework retrieves on every TutorEval sample; this result therefore tests whether planning, diagnosis, and rubric context help even when chapter evidence is always consulted.
 
@@ -192,7 +192,7 @@ Tables~\ref{tab:tutoreval_results} and~\ref{tab:edubench_results} report paired 
 \caption{TutorEval quality validation ($n{=}834$). Higher is better.}
 \label{tab:tutoreval_results}
 \centering
-\footnotesize
+\small
 \setlength{\tabcolsep}{3pt}
 \renewcommand{\arraystretch}{1.06}
 \begin{tabular}{lrrrr}
@@ -206,7 +206,7 @@ $\Delta$ & $+0.006$ & $+0.004^{\star}$ & $+0.019^{\star\star}$ & $+0.026^{\star\
 \end{tabular}
 \end{table}
 
-\subsection{Trade-offs and ablations}
+\subsection{Trade-offs and Ablations}
 
 On TutorEval, the 95\% confidence intervals are $[0.0003,0.007]$ for Token-F1, $[0.006,0.032]$ for tutor-hit, and $[0.007,0.045]$ for rubric coverage. The framework also reduces average latency from 51\,903 to 49\,113 ms, tokens from 3\,975 to 3\,490, and backbone calls from 1.84 to 1.56.
 
@@ -216,7 +216,7 @@ On the EduBench intersection, multi-agent retrieval improves EB12D by $+0.031$ a
 \caption{EduBench quality validation ($n{=}1562$). Higher is better.}
 \label{tab:edubench_results}
 \centering
-\footnotesize
+\small
 \setlength{\tabcolsep}{3pt}
 \renewcommand{\arraystretch}{1.06}
 \begin{tabular}{lrrr}
