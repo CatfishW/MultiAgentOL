@@ -26,7 +26,7 @@
 \setlength{\abovedisplayshortskip}{2pt plus 1pt minus 1pt}
 \setlength{\belowdisplayshortskip}{2pt plus 1pt minus 1pt}
 \setlength{\abovecaptionskip}{3pt}
-\setlength{\belowcaptionskip}{1pt}
+\setlength{\belowcaptionskip}{0pt}
 \title{\LARGE \bf
 MARLET: Multi-Agent Retrieval for\\
 Learning-State-Aware Educational Tutoring
@@ -188,23 +188,23 @@ For TutorEval, tutor-hit measures teaching-point coverage. If a sample has $K$ e
 \section{Validation Experiments}
 \label{sec:results}
 
-We validate the framework on two public educational benchmarks. TutorEval~\cite{chevalier2024sciencetutors} contains 834 expert-written science tutoring questions paired with long STEM chapters and teaching key points, so responses must explain, disambiguate, and stay chapter-grounded. EduBench~\cite{xu2025edubench} covers nine educational scenarios, including question answering, error correction, personalized support, emotional support, grading, teaching-material generation, and personalized content creation. Its rows contain prompts, scenario metadata, and reference model predictions; our adapter converts those references into consensus-style supervision through score statistics and rubric terms. For reporting, we use the 1562-example four-way EduBench intersection completed by all forced architectures.
+We validate the framework on two public educational benchmarks. TutorEval~\cite{chevalier2024sciencetutors} contains 834 expert-written science tutoring questions paired with long STEM chapters and teaching key points, so responses must explain, disambiguate, and stay chapter-grounded. EduBench~\cite{xu2025edubench} covers nine educational scenarios, including question answering, error correction, personalized support, emotional support, grading, teaching-material generation, and personalized content creation. Its rows contain prompts, scenario metadata, and reference model predictions; our adapter converts them into consensus-style supervision through score statistics and rubric terms. For reporting, we use the 1562-example four-way EduBench intersection completed by all forced architectures.
 
-The primary validation compares classical RAG with \textsc{MARLET} under matched \textsc{Qwen3.5-4B} infrastructure, reasoning budget 512, temperature 0.15, response cap 900, shared corpus, shared reranker, and fixed retrieval hyperparameters. Both systems run on the same samples. In classical RAG, retrieval uses the original benchmark fields, including any supplied learner state or context; the tutor receives those fields and chunks, but not \textsc{MARLET}'s planner, diagnosis, or rubric brief. This is the intended contrast: the baseline tests retrieve-then-read grounding, while the proposed framework tests explicit context construction plus conditional retrieval.
+The primary validation compares classical RAG with \textsc{MARLET} under matched \textsc{Qwen3.5-4B} infrastructure, reasoning budget 512, temperature 0.15, response cap 900, shared corpus, shared reranker, and fixed retrieval hyperparameters; a smaller \textsc{Qwen3.5-27B-FP8} replication checks backbone sensitivity. Both systems run on the same samples. In classical RAG, retrieval uses the original benchmark fields, including any supplied learner state or context; the tutor receives those fields and chunks, but not \textsc{MARLET}'s planner, diagnosis, or rubric brief. This is the intended contrast: the baseline tests retrieve-then-read grounding, while the proposed framework tests explicit context construction plus conditional retrieval.
 
 The validation is fair at the infrastructure level but intentionally not identical at context construction: giving classical RAG the planner, diagnoser, and rubric outputs would convert it into the proposed framework, while withholding them from \textsc{MARLET} would remove the claimed contribution. We therefore report quality and resource outcomes together.
 
 \subsection{Framework Validation}
 
-Table~\ref{tab:validation_summary} reports paired matched-sample comparisons with bootstrap confidence intervals and permutation p-values. On TutorEval, \textsc{MARLET} raises Token-F1, tutor-hit, and rubric coverage while using fewer tokens and fewer backbone calls; latency trends lower but is not reliable ($p{=}0.21$). Because the forced TutorEval harness computes route metadata before architecture forcing, the proposed framework retrieves on every TutorEval sample; this result tests whether planning, diagnosis, and rubric context help even when chapter evidence is always consulted.
+Table~\ref{tab:validation_summary} reports paired matched-sample 4B comparisons with bootstrap confidence intervals and permutation p-values. On TutorEval, \textsc{MARLET} raises Token-F1, tutor-hit, and rubric coverage while using fewer tokens and fewer backbone calls; latency trends lower but is not reliable ($p{=}0.21$). Table~\ref{tab:validation_27b} reports the 27B replication.
 
 \begin{table}[t]
-\caption{Quality and 4090 resource summary. Quality is higher-better; runtime, tokens, and calls are lower-better.}
+\caption{4B quality and 4090 resource summary. Quality is higher-better; runtime, tokens, and calls are lower-better.}
 \label{tab:validation_summary}
 \centering
-\small
+\footnotesize
 \setlength{\tabcolsep}{2.8pt}
-\renewcommand{\arraystretch}{1.03}
+\renewcommand{\arraystretch}{0.96}
 \begin{tabular}{llrrr}
 \toprule
 Data & Metric & RAG & Ours & $\Delta$ \\
@@ -224,29 +224,47 @@ Data & Metric & RAG & Ours & $\Delta$ \\
 & Calls & 1.97 & \textbf{1.48} & $-0.49^{\star\star\star}$ \\
 \bottomrule
 \end{tabular}
-\begin{minipage}{\columnwidth}\footnotesize\vspace{0.2em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Runtime is mean wall-clock seconds per sample from paired 4B runs on the 4090 server.\end{minipage}
+\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Runtime is mean wall-clock seconds on the 4090 server.\end{minipage}
+\end{table}
+
+\begin{table}[t]
+\caption{27B matched-slice replication ($\Delta=$Ours--RAG).}
+\label{tab:validation_27b}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2.2pt}
+\renewcommand{\arraystretch}{0.98}
+\begin{tabular}{@{}llp{0.42\columnwidth}p{0.32\columnwidth}@{}}
+\toprule
+Data & $n$ & Quality $\Delta$ & Resource $\Delta$ \\
+\midrule
+TutorEval & 200 & F1 $-0.000$, hit $+0.001$, rub. $-0.002$ & latency $-11.8$ s$^{\star\star\star}$, tokens $-992^{\star\star\star}$, calls $-0.56^{\star\star\star}$ \\
+EduBench & 87 & EB12D $+0.032^{\star\star}$, rub. $+0.210^{\star\star\star}$, align $-0.063$ & latency $-22.1$ s$^{\star\star\star}$, tokens $-1861^{\star\star\star}$, calls $-0.57^{\star\star\star}$ \\
+\bottomrule
+\end{tabular}
+\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$. Latency $\Delta$ is wall-clock seconds/sample on the 4090 server.\end{minipage}
 \end{table}
 
 \subsection{Trade-offs and Ablations}
 
 For TutorEval, the 95\% confidence intervals are $[0.0002,0.007]$ for Token-F1, $[0.006,0.032]$ for tutor-hit, and $[0.006,0.044]$ for rubric coverage. For EduBench, they are $[0.027,0.036]$ for EB12D, $[0.174,0.198]$ for rubric coverage, and $[-0.069,-0.011]$ for EduAlign; cost intervals are $[-6702,-5248]$ ms for latency, $[-1847,-1741]$ tokens, and $[-0.52,-0.46]$ calls. Classical RAG keeps a small EduAlign edge, but the frozen hybrid skips retrieval on every EduBench sample, so these prompts are usually better served by learner- and rubric-centered coordination than by external lookup.
 
-The framework can use more modules than classical RAG, so resource cost must be reported. In these runs, scoped planner queries and the retrieval gate reduce token use; retrieval-free diagnostics remain unsuitable as main baselines for TutorEval because chapter evidence is required. Two 4B ablations on a shared TutorEval slice ($n{=}100$) further isolate the mechanism: forcing retrieval hurts Token-F1 ($-0.003$), tutor-hit ($-0.015$), and rubric coverage ($-0.025$), while disabling the shared critic shows that the main gain does not come from critic revision. On \textsc{Qwen3.5-27B-FP8}, TutorEval deltas collapse near zero but hybrid remains more efficient; EduBench 27B repeats the pattern with EB12D $+0.032$, rubric $+0.210$, tokens $-1{,}861$, and latency $-22{,}070$\,ms.
+The framework can use more modules than classical RAG, so resource cost must be reported. Here, scoped planner queries and the retrieval gate reduce token use. Two 4B ablations on a shared TutorEval slice ($n{=}100$) isolate the mechanism: forcing retrieval hurts Token-F1 ($-0.003$), tutor-hit ($-0.015$), and rubric coverage ($-0.025$), while disabling the shared critic shows that the main gain does not come from critic revision. The 27B replication shows the same resource pattern; TutorEval quality is essentially tied, while EduBench keeps the EB12D/rubric advantage and EduAlign trade-off.
 
 These results clarify the intended use of \textsc{MARLET}: it is not a universal replacement for retrieval, but a controller for deciding what grounding a tutoring sample needs. Chapter-grounded samples still need evidence, whereas learner-profile, rubric, or scenario-heavy samples may be better served by learner-state and answer-criteria summaries than by mandatory topical retrieval.
 
 \section{Limitations}
 \label{sec:limitations}
 
-The study validates a framework rather than a final tutoring product. It reports automatic rather than human evaluation and is limited to two open-weight backbones, English-only data, benchmark outputs rather than downstream learning gains, and visible learner-state inference from prompts and dialogue. Real deployment would require privacy safeguards, bias checks, data governance, and human instructional oversight.
+The study validates a framework rather than a final tutoring product. It uses automatic evaluation on English benchmark outputs and infers learner state only from visible prompt/dialogue fields. Real deployment would require privacy safeguards, bias checks, data governance, human oversight, and downstream learning-gain studies.
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-\textsc{MARLET} reframes grounding for educational tutoring as supervised context construction rather than query-only passage lookup. Under shared infrastructure, it improves fixed-tutor quality and efficiency over classical RAG, showing that learner state, rubric constraints, and conditional evidence should be coordinated before the tutor writes. Future work should compare against stronger controller-based RAG baselines, add human and multi-turn evaluation, and extend the router with learned calibration, profile-aware reranking, multilingual curricula, and privacy-preserving learner-state inference.
+\textsc{MARLET} reframes grounding for educational tutoring as supervised context construction rather than query-only passage lookup. Under shared infrastructure, it improves fixed-tutor quality and efficiency over classical RAG, showing that learner state, rubric constraints, and conditional evidence should be coordinated before the tutor writes. Future work should add stronger controller baselines, human and multi-turn evaluation, learned router calibration, profile-aware reranking, and privacy-preserving learner-state inference.
 
 \begingroup
-\fontsize{6.6}{6.95}\selectfont
+\fontsize{6.35}{6.55}\selectfont
 \bibliographystyle{IEEEtran}
 \bibliography{references/references}
 \endgroup
