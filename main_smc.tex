@@ -199,7 +199,7 @@ The contrast is fair at the infrastructure level but intentionally different in 
 Table~\ref{tab:validation_summary} reports paired matched-sample 4B comparisons with bootstrap confidence intervals and permutation p-values. On TutorEval, \textsc{MARLET} raises Token-F1, tutor-hit, and rubric coverage while using fewer tokens and fewer backbone calls; latency trends lower but is not reliable ($p{=}0.21$). Table~\ref{tab:validation_27b} reports the 27B replication.
 
 \begin{table}[t]
-\caption{4B quality and 4090 resource summary. Quality is higher-better; runtime, tokens, and calls are lower-better.}
+\caption{4B quality and resource summary.}
 \label{tab:validation_summary}
 \centering
 \footnotesize
@@ -224,11 +224,11 @@ Data & Metric & RAG & Ours & $\Delta$ \\
 & Calls & 1.97 & \textbf{1.48} & $-0.49^{\star\star\star}$ \\
 \bottomrule
 \end{tabular}
-\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Runtime is mean wall-clock seconds on the 4090 server.\end{minipage}
+\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency, tokens, and calls. Runtime is mean wall-clock seconds/sample on the 4090 server.\end{minipage}
 \end{table}
 
 \begin{table}[t]
-\caption{27B paired quality and resource summary.}
+\caption{27B quality and resource summary.}
 \label{tab:validation_27b}
 \centering
 \footnotesize
@@ -253,7 +253,7 @@ Data & Metric & RAG & Ours & $\Delta$ \\
 & Calls & 2.00 & \textbf{1.81} & $-0.19^{\star\star\star}$ \\
 \bottomrule
 \end{tabular}
-\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}TutorEval uses $n{=}400$ paired samples; EduBench uses $n{=}328$ unique paired rows after duplicate public IDs in the 400-example slice are collapsed. $^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher/lower follows Table~\ref{tab:validation_summary}; runtime is seconds/sample on the 4090 server.\end{minipage}
+\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}TutorEval uses $n{=}400$ paired samples; EduBench uses $n{=}328$ unique paired rows after duplicate public IDs in the 400-example slice are collapsed. $^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency, tokens, and calls. Runtime is mean wall-clock seconds/sample on the 4090 server.\end{minipage}
 \end{table}
 
 \subsection{Trade-offs and Ablations}
