@@ -228,7 +228,7 @@ Data & Metric & RAG & Ours & $\Delta$ \\
 \end{table}
 
 \begin{table}[t]
-\caption{27B paired quality and resource summary. TutorEval uses $n{=}400$ paired samples; EduBench uses $n{=}328$ unique paired rows after duplicate public IDs in the 400-example slice are collapsed.}
+\caption{27B paired quality and resource summary.}
 \label{tab:validation_27b}
 \centering
 \footnotesize
@@ -253,7 +253,7 @@ Data & Metric & RAG & Ours & $\Delta$ \\
 & Calls & 2.00 & \textbf{1.81} & $-0.19^{\star\star\star}$ \\
 \bottomrule
 \end{tabular}
-\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher/lower follows Table~\ref{tab:validation_summary}; runtime is seconds/sample on the 4090 server.\end{minipage}
+\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}TutorEval uses $n{=}400$ paired samples; EduBench uses $n{=}328$ unique paired rows after duplicate public IDs in the 400-example slice are collapsed. $^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher/lower follows Table~\ref{tab:validation_summary}; runtime is seconds/sample on the 4090 server.\end{minipage}
 \end{table}
 
 \subsection{Trade-offs and Ablations}
