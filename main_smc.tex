@@ -176,7 +176,7 @@ where $c^\star$ is the next selected chunk, $\mathcal{C}$ is the reranked candid
 
 \subsection{Evaluation Protocol}
 
-Evaluation is dataset-aware, but the reported metrics are internal automatic proxies implemented in the released evaluator rather than official benchmark scoring scripts. The headline table's composite score (\textit{Comp.}) is a paper-level weighted summary from the released analysis pipeline, reported only as a convenience overview; we interpret the task-specific metrics directly. Token-F1 is the token-overlap F1 between the model answer and the benchmark reference answer. Rubric coverage is the fraction of rubric items the answer covers, using either near-verbatim phrase match or sufficiently strong token overlap anchored by a content-bearing token. Latency, total tokens, and backbone-call count capture inference cost; backbone calls are the logged number of LLM requests needed for one sample.
+Evaluation is dataset-aware, but the reported metrics are internal automatic proxies implemented in the released evaluator rather than official benchmark scoring scripts. Token-F1 is the token-overlap F1 between the model answer and the benchmark reference answer. Rubric coverage is the fraction of rubric items the answer covers, using either near-verbatim phrase match or sufficiently strong token overlap anchored by a content-bearing token. Latency, total tokens, and backbone-call count capture inference cost; backbone calls are the logged number of LLM requests needed for one sample.
 
 For EduBench, we additionally report EB12D, the mean over 12 rubric-oriented signals spanning scenario adaptation, factual reasoning, and pedagogical application. Those signals reward output-format compliance, supportive but non-negative tone, relevance to the question, use of scenario elements from the sample, alignment with the benchmark score, domain-knowledge grounding, reasoning quality, error identification, clarity, motivational guidance, personalization, and higher-order prompting. We report EduAlign as $1-|s(y)-\bar{s}|/100$, where $y$ is the model's JSON output, $s(y)$ is the numeric score extracted from it, and $\bar{s}$ is the benchmark reference score.
 
@@ -194,52 +194,40 @@ The validation is fair at the infrastructure level but intentionally not identic
 
 \subsection{Framework Validation}
 
-Tables~\ref{tab:tutoreval_results} and~\ref{tab:edubench_results} report paired matched-sample comparisons with bootstrap confidence intervals and permutation p-values. On TutorEval, \textsc{MARLET} raises Token-F1 by $+0.004$, tutor-hit by $+0.019$, and rubric coverage by $+0.026$, while using 484 fewer tokens. Latency trends lower but is not reliable ($p{=}0.21$). Because the forced TutorEval harness computes route metadata before architecture forcing, the proposed framework retrieves on every TutorEval sample; this result therefore tests whether planning, diagnosis, and rubric context help even when chapter evidence is always consulted.
+Table~\ref{tab:validation_summary} reports paired matched-sample comparisons with bootstrap confidence intervals and permutation p-values. On TutorEval, \textsc{MARLET} raises Token-F1, tutor-hit, and rubric coverage while using fewer tokens and fewer backbone calls; latency trends lower but is not reliable ($p{=}0.21$). Because the forced TutorEval harness computes route metadata before architecture forcing, the proposed framework retrieves on every TutorEval sample; this result tests whether planning, diagnosis, and rubric context help even when chapter evidence is always consulted.
 
 \begin{table}[t]
-\caption{TutorEval quality validation ($n{=}834$). Higher is better.}
-\label{tab:tutoreval_results}
+\caption{Quality and 4090 resource summary. Quality is higher-better; runtime, tokens, and calls are lower-better.}
+\label{tab:validation_summary}
 \centering
 \small
-\setlength{\tabcolsep}{3pt}
-\renewcommand{\arraystretch}{1.06}
-\begin{tabular}{lrrrr}
+\setlength{\tabcolsep}{2.8pt}
+\renewcommand{\arraystretch}{1.03}
+\begin{tabular}{llrrr}
 \toprule
-Method & Comp. & Tok-F1 & TE Hit & Rubric \\
+Data & Metric & RAG & Ours & $\Delta$ \\
 \midrule
-Classical RAG & 0.377 & 0.112 & 0.938 & 0.919 \\
-Ours & \textbf{0.383} & \textbf{0.115} & \textbf{0.957} & \textbf{0.944} \\
-$\Delta$ & $+0.006$ & $+0.004^{\star}$ & $+0.019^{\star\star}$ & $+0.026^{\star\star}$ \\
+\multirow{6}{*}{TutorEval} & Token-F1 & 0.112 & \textbf{0.115} & $+0.004^{\star}$ \\
+& TE hit & 0.938 & \textbf{0.957} & $+0.019^{\star\star}$ \\
+& Rubric & 0.919 & \textbf{0.944} & $+0.026^{\star\star}$ \\
+& Latency (s) & 51.90 & \textbf{49.11} & $-2.79$ \\
+& Tokens & 3975 & \textbf{3490} & $-484^{\star\star\star}$ \\
+& Calls & 1.84 & \textbf{1.56} & $-0.28$ \\
+\midrule
+\multirow{6}{*}{EduBench} & EB12D & 0.367 & \textbf{0.398} & $+0.031^{\star\star\star}$ \\
+& Rubric & 0.705 & \textbf{0.891} & $+0.186^{\star\star\star}$ \\
+& EduAlign & \textbf{0.166} & 0.126 & $-0.040^{\star\star}$ \\
+& Latency (s) & 19.83 & \textbf{13.90} & $-5.92^{\star\star\star}$ \\
+& Tokens & 4020 & \textbf{2226} & $-1794^{\star\star\star}$ \\
+& Calls & 1.97 & \textbf{1.48} & $-0.49^{\star\star\star}$ \\
 \bottomrule
 \end{tabular}
+\begin{minipage}{\columnwidth}\footnotesize\vspace{0.2em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Runtime is mean wall-clock seconds per sample from paired 4B runs on the 4090 server.\end{minipage}
 \end{table}
 
 \subsection{Trade-offs and Ablations}
 
-On TutorEval, the 95\% confidence intervals are $[0.0003,0.007]$ for Token-F1, $[0.006,0.032]$ for tutor-hit, and $[0.007,0.045]$ for rubric coverage. The framework also reduces average latency from 51\,903 to 49\,113 ms, tokens from 3\,975 to 3\,490, and backbone calls from 1.84 to 1.56.
-
-On the EduBench intersection, \textsc{MARLET} improves EB12D by $+0.031$ and rubric coverage by $+0.186$, while reducing latency by $5{,}923$\,ms, tokens by $1{,}794$, and backbone calls by 0.49. Classical RAG keeps a small EduAlign edge, but the frozen hybrid skips retrieval on every EduBench sample, so these prompts are usually better served by learner- and rubric-centered coordination than by external lookup.
-
-\begin{table}[t]
-\caption{EduBench quality validation ($n{=}1562$). Higher is better.}
-\label{tab:edubench_results}
-\centering
-\small
-\setlength{\tabcolsep}{3pt}
-\renewcommand{\arraystretch}{1.06}
-\begin{tabular}{lrrr}
-\toprule
-Method & EB12D & Rubric & EduAlign \\
-\midrule
-Classical RAG & 0.367 & 0.705 & \textbf{0.166} \\
-Ours & \textbf{0.398} & \textbf{0.891} & 0.126 \\
-$\Delta$ & $+0.031^{\star\star\star}$ & $+0.186^{\star\star\star}$ & $-0.040^{\star\star}$ \\
-\bottomrule
-\end{tabular}
-\begin{minipage}{\columnwidth}\footnotesize\vspace{0.2em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$; CIs use 2000 paired bootstraps and p-values use 10000 permutations.\end{minipage}
-\end{table}
-
-For EduBench, the 95\% confidence intervals are $[0.027,0.036]$ for EB12D, $[0.174,0.199]$ for rubric coverage, and $[-0.069,-0.011]$ for EduAlign. The cost intervals are also favorable: latency $[-6628,-5242]$ ms, tokens $[-1845,-1738]$, and calls $[-0.52,-0.46]$.
+For TutorEval, the 95\% confidence intervals are $[0.0002,0.007]$ for Token-F1, $[0.006,0.032]$ for tutor-hit, and $[0.006,0.044]$ for rubric coverage. For EduBench, they are $[0.027,0.036]$ for EB12D, $[0.174,0.198]$ for rubric coverage, and $[-0.069,-0.011]$ for EduAlign; cost intervals are $[-6702,-5248]$ ms for latency, $[-1847,-1741]$ tokens, and $[-0.52,-0.46]$ calls. Classical RAG keeps a small EduAlign edge, but the frozen hybrid skips retrieval on every EduBench sample, so these prompts are usually better served by learner- and rubric-centered coordination than by external lookup.
 
 The framework can use more modules than classical RAG, so resource cost must be reported. In these runs, scoped planner queries and the retrieval gate reduce token use; retrieval-free diagnostics remain unsuitable as main baselines for TutorEval because chapter evidence is required. Two 4B ablations on a shared TutorEval slice ($n{=}100$) further isolate the mechanism: forcing retrieval hurts Token-F1 ($-0.003$), tutor-hit ($-0.015$), and rubric coverage ($-0.025$), while disabling the shared critic shows that the main gain does not come from critic revision. On \textsc{Qwen3.5-27B-FP8}, TutorEval deltas collapse near zero but hybrid remains more efficient; EduBench 27B repeats the pattern with EB12D $+0.032$, rubric $+0.210$, tokens $-1{,}861$, and latency $-22{,}070$\,ms.
 
