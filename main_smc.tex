@@ -228,7 +228,7 @@ Data & Metric & RAG & Ours & $\Delta$ \\
 \end{table}
 
 \begin{table}[t]
-\caption{27B matched-slice quality and resource summary (TutorEval $n{=}200$, EduBench $n{=}87$).}
+\caption{27B paired quality and resource summary. TutorEval uses $n{=}400$ paired samples; EduBench uses $n{=}328$ unique paired rows after duplicate public IDs in the 400-example slice are collapsed.}
 \label{tab:validation_27b}
 \centering
 \footnotesize
@@ -238,29 +238,29 @@ Data & Metric & RAG & Ours & $\Delta$ \\
 \toprule
 Data & Metric & RAG & Ours & $\Delta$ \\
 \midrule
-\multirow{6}{*}{TutorEval} & Token-F1 & \textbf{0.1273} & 0.1271 & $-0.0002$ \\
-& TE hit & 0.9964 & \textbf{0.9976} & $+0.0012$ \\
-& Rubric & \textbf{0.9973} & 0.9957 & $-0.0017$ \\
-& Latency (s) & 39.33 & \textbf{27.49} & $-11.84^{\star\star\star}$ \\
-& Tokens & 4053 & \textbf{3061} & $-992^{\star\star\star}$ \\
-& Calls & 1.86 & \textbf{1.31} & $-0.56^{\star\star\star}$ \\
+\multirow{6}{*}{TutorEval} & Token-F1 & 0.264 & \textbf{0.272} & $+0.008^{\star}$ \\
+& TE hit & 0.897 & \textbf{0.918} & $+0.021^{\star}$ \\
+& Rubric & 0.861 & \textbf{0.891} & $+0.030^{\star}$ \\
+& Latency (s) & 41.47 & \textbf{40.65} & $-0.82^{\star\star}$ \\
+& Tokens & 6681 & 6730 & $+49$ \\
+& Calls & 1.99 & 1.99 & $-0.01$ \\
 \midrule
-\multirow{6}{*}{EduBench} & EB12D & 0.411 & \textbf{0.443} & $+0.032^{\star\star}$ \\
-& Rubric & 0.745 & \textbf{0.955} & $+0.210^{\star\star\star}$ \\
-& EduAlign & \textbf{0.316} & 0.253 & $-0.063$ \\
-& Latency (s) & 40.17 & \textbf{18.10} & $-22.07^{\star\star\star}$ \\
-& Tokens & 3967 & \textbf{2107} & $-1861^{\star\star\star}$ \\
-& Calls & 1.98 & \textbf{1.40} & $-0.57^{\star\star\star}$ \\
+\multirow{6}{*}{EduBench} & EB12D & 0.355 & \textbf{0.425} & $+0.070^{\star\star\star}$ \\
+& Rubric & 0.634 & \textbf{0.769} & $+0.135^{\star\star\star}$ \\
+& EduAlign & \textbf{0.541} & 0.526 & $-0.015$ \\
+& Latency (s) & 41.91 & \textbf{32.09} & $-9.81^{\star\star\star}$ \\
+& Tokens & 6105 & \textbf{3717} & $-2388^{\star\star\star}$ \\
+& Calls & 2.00 & \textbf{1.81} & $-0.19^{\star\star\star}$ \\
 \bottomrule
 \end{tabular}
-\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$. Higher/lower follows Table~\ref{tab:validation_summary}; runtime is seconds/sample on the 4090 server.\end{minipage}
+\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher/lower follows Table~\ref{tab:validation_summary}; runtime is seconds/sample on the 4090 server.\end{minipage}
 \end{table}
 
 \subsection{Trade-offs and Ablations}
 
-For TutorEval, 95\% CIs are $[0.0002,0.007]$ for Token-F1, $[0.006,0.032]$ for tutor-hit, and $[0.006,0.044]$ for rubric coverage. For EduBench, CIs are $[0.027,0.036]$ for EB12D, $[0.174,0.198]$ for rubric, and $[-0.069,-0.011]$ for EduAlign; cost CIs are $[-6702,-5248]$ ms, $[-1847,-1741]$ tokens, and $[-0.52,-0.46]$ calls. Classical RAG keeps a small EduAlign edge, but the frozen hybrid skips retrieval on every EduBench sample, so many scenario-heavy prompts are better served by learner- and rubric-centered coordination than by external lookup.
+For TutorEval, the 27B paired CIs are $[0.0019,0.0147]$ for Token-F1, $[0.0046,0.0378]$ for tutor-hit, and $[0.0051,0.0532]$ for rubric coverage; latency also trends lower with CI $[-1372,-297]$ ms. For EduBench, the 27B paired CIs are $[0.0616,0.0778]$ for EB12D, $[0.1161,0.1544]$ for rubric, and $[-0.0337,0.0024]$ for EduAlign; cost CIs are $[-10658,-8985]$ ms, $[-2501,-2277]$ tokens, and $[-0.232,-0.146]$ calls. Classical RAG keeps a small EduAlign edge on EduBench, but it is not statistically reliable in this 27B slice.
 
-The framework can use more modules than classical RAG, so resource cost must be reported. Here, scoped planner queries and the retrieval gate reduce token use. Two 4B ablations on a shared TutorEval slice ($n{=}100$) isolate the mechanism: forcing retrieval hurts Token-F1 ($-0.003$), tutor-hit ($-0.015$), and rubric coverage ($-0.025$), while disabling the shared critic shows that gains do not come mainly from critic revision. The 27B replication shows the same resource pattern: TutorEval quality is essentially tied, while EduBench keeps the EB12D/rubric advantage and EduAlign trade-off. Thus \textsc{MARLET} is not a universal replacement for retrieval; it is a controller for deciding what grounding a tutoring sample needs.
+The framework can use more modules than classical RAG, so resource cost must be reported. Here, scoped planner queries and the retrieval gate reduce token use in 4B and still reduce latency in 27B, but the 27B TutorEval replication shows that better pedagogical coverage does not automatically mean fewer tokens. Two 4B ablations on a shared TutorEval slice ($n{=}100$) isolate the mechanism: forcing retrieval hurts Token-F1 ($-0.003$), tutor-hit ($-0.015$), and rubric coverage ($-0.025$), while disabling the shared critic shows that gains do not come mainly from critic revision. Thus \textsc{MARLET} is not a universal replacement for retrieval; it is a controller for deciding what grounding a tutoring sample needs.
 
 \section{Limitations}
 \label{sec:limitations}
