@@ -149,7 +149,7 @@ The tutor itself is the LLM-driven agent that produces the final response. It is
 
 \subsection{Hybrid Retrieval, Reranking, and Context Packing}
 
-The retrieval stack is intentionally lightweight and also follows the codebase exactly. The following equations are scoring rules, not learned models: a larger score means the chunk is ranked higher for the current query. For a query $q$ and candidate chunk $c$, the hybrid index first computes
+The retrieval stack is intentionally lightweight. The following equations are scoring rules, not learned models: a larger score means the chunk is ranked higher for the current query. For a query $q$ and candidate chunk $c$, the hybrid index first computes
 \begin{equation}
 \begin{aligned}
 \mathrm{score}_0
@@ -159,7 +159,7 @@ The retrieval stack is intentionally lightweight and also follows the codebase e
 \end{equation}
 where all terms are computed for the current $(q,c)$ pair. Here $k_w$ is word-level TF--IDF similarity, $k_{ch}$ is character $3$--$5$ gram TF--IDF similarity, and $k_{\ell}$ is the similarity in the truncated-SVD latent space. The weights state how much the released retriever trusts each signal: word similarity contributes most, latent semantic similarity is second, and character similarity helps with spelling variants and short phrases. The query boost $\beta$ adds $0.01$ per overlapping title token and, in citation-seeking mode, an additional $0.025$ for chunks whose source type is \emph{reference}, \emph{lecture}, or \emph{document}. When multiple planner queries are issued, the retriever merges all returned candidates and deduplicates them by chunk identifier before reranking.
 
-In the released paper configuration, no trained reranker is loaded, so the heuristic reranker score is
+In the configuration, no trained reranker is loaded, so the heuristic reranker score is
 \begin{equation}
 \begin{aligned}
 \mathrm{score}_1
