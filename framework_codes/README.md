@@ -14,12 +14,12 @@ are redacted; framework parameters, budgets, and architecture switches are kept.
   `src/eduagentic/core/contracts.py`
 - System wiring and architecture selection:
   `src/eduagentic/app.py`, `src/eduagentic/config.py`
-- Supervisory routing, cue scoring, task regimes, retrieval gates, and learner state:
+- Supervisory routing, cue scoring, task regimes, retrieval gates, and visible task state:
   `src/eduagentic/ml/regime_router.py`, `src/eduagentic/ml/student_state.py`
 - Parallel execution and controller variants:
   `src/eduagentic/orchestration/pipelines.py`, `src/eduagentic/orchestration/runtime.py`,
   `src/eduagentic/orchestration/swarm_bridge.py`
-- Specialist agents used to build the tutoring brief:
+- LLM-backed specialist agents used to build the response brief:
   `src/eduagentic/agents/planner.py`, `diagnoser.py`, `rubric.py`, `retriever.py`,
   `tutor.py`, `critic.py`, and `base.py`
 - Prompt assembly logic:

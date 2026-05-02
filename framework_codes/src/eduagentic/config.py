@@ -60,6 +60,7 @@ class RouterConfig:
     coordination_threshold: float = 0.5
     prefer_hybrid_for_mixed: bool = True
     model_path: str | None = None
+    use_dataset_priors: bool = False
     # Hybrid retrieval gate: used inside HYBRID_FAST to decide whether to retrieve.
     # Default matches the production value embedded in LightweightRegimeRouter.
     hybrid_retrieval_gate: float = 0.35
@@ -78,8 +79,8 @@ class PipelineConfig:
     enable_critic: bool = True
     enable_rubric_agent: bool = True
     enable_diagnoser: bool = True
-    enable_planner_llm: bool = False
-    use_fast_rule_planner: bool = True
+    enable_planner_llm: bool = True
+    use_fast_rule_planner: bool = False
     parallel_specialists: bool = True
     cache_dir: str = ".cache/eduagentic/models"
     # Ablation knobs. All default False => current production behavior.
@@ -114,13 +115,13 @@ DEFAULT_CONFIG = AppConfig(
     endpoints={
         "llm": EndpointConfig(
             name="llm",
-            base_url="https://example-llm-endpoint/v1",
+            base_url="https://llm.agaii.org/v1",
             capability="text",
             api_key_env="AGAII_LLM_API_KEY",
         ),
         "mllm": EndpointConfig(
             name="mllm",
-            base_url="https://example-llm-endpoint/v1",
+            base_url="https://llm.agaii.org/v1",
             capability="multimodal",
             api_key_env="AGAII_MLLM_API_KEY",
         ),

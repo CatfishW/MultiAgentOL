@@ -1,22 +1,22 @@
 endpoints:
   llm:
-    base_url: https://example-llm-endpoint/v1
+    base_url: https://llm.agaii.org/v1
     capability: text
     supports_vision: true
     api_key_env: null
-    default_model: Qwen3.5-4B
-    pinned_model: Qwen3.5-4B
+    default_model: /home/tang/Projects/Models/Qwen3.5-4B
+    pinned_model: /home/tang/Projects/Models/Qwen3.5-4B
     timeout_s: 300
     max_retries: 20
     chat_extra:
       extra_body:
         thinking_budget: 512
   mllm:
-    base_url: https://example-llm-endpoint/v1
+    base_url: https://llm.agaii.org/v1
     capability: multimodal
     api_key_env: null
-    default_model: Qwen3.5-4B
-    pinned_model: Qwen3.5-4B
+    default_model: /home/tang/Projects/Models/Qwen3.5-4B
+    pinned_model: /home/tang/Projects/Models/Qwen3.5-4B
     timeout_s: 300
     max_retries: 20
 
@@ -26,8 +26,8 @@ pipeline:
   enable_critic: true
   enable_rubric_agent: true
   enable_diagnoser: true
-  enable_planner_llm: false
-  use_fast_rule_planner: true
+  enable_planner_llm: true
+  use_fast_rule_planner: false
   parallel_specialists: true
 
 retriever:
@@ -40,6 +40,7 @@ retriever:
 router:
   evidence_threshold: 0.52
   coordination_threshold: 0.50
+  use_dataset_priors: false
 
 datasets:
   root_dir: data
