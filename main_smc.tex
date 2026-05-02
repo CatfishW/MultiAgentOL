@@ -113,7 +113,7 @@ where $K$ is the maximum number of planner retrieval queries, $Q$ is the maximum
 11: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},P)),q),Q,L)$\\
 12: & \textbf{end if}\\
 13: & $y_0\leftarrow A_{\rm tutor}(\mathrm{Prompt}(q,o,h,p,\ell,u,D,c))$\\
-14: & \textbf{if} $D=\emptyset$ \textbf{and} $s_{\rm ev}\ge\tau_{\rm fb}$ \textbf{then}\\
+14: & \textbf{if} $D=\emptyset$ \textbf{and} $s_{\rm ev}\ge\tau_2$ \textbf{then}\\
 15: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Search}(\mathcal{I},[q]),q),Q,L)$\\
 16: & \quad $y_0\leftarrow A_{\rm tutor}(\mathrm{Prompt}(q,o,h,p,\ell,u,D,c))$\\
 17: & \textbf{end if}\\
@@ -136,7 +136,7 @@ The router uses five cue families $j\in\{\mathrm{ev},\mathrm{co},\mathrm{ru},\ma
 \begin{equation}
 s_j(x)=\frac{M_j(x)}{|W_j|},
 \end{equation}
-where $|W_j|$ is the number of cues in family $j$, so $s_j(x)$ is the fraction of that cue family observed in the routing blob. The thresholds are fixed router hyperparameters, not probabilities or learned weights. We choose them in cue-count units so $\tau_{\rm mid}$ requires a repeated cue pattern rather than one accidental word, $\tau_{\rm plan}$ is stricter because a false planning route changes the whole answer structure, and $\tau_{\rm fb}$ is stricter because fallback retrieval costs an extra pass.
+where $|W_j|$ is the number of cues in family $j$, so $s_j(x)$ is the fraction of that cue family observed in the routing blob. The thresholds are fixed router hyperparameters, not probabilities or learned weights. We choose them in cue-count units so $\tau_{\rm mid}$ requires a repeated cue pattern rather than one accidental word, $\tau_{\rm plan}$ is stricter because a false planning route changes the whole answer structure, and $\tau_2$ permits retry only for strong evidence cues.
 
 After cue scoring, the supervisor chooses a pedagogical regime. A regime is not a dataset label; it is a generic prompt-priority decision made before retrieval and generation. The intuition is to ask what missing constraint would most likely make the final answer wrong. If the learner needs an ordered path, lesson planning (LP) reserves space for sequence and pacing. If the task asks for judgment, rubric feedback (RF) reserves space for criteria and scoring logic. If the learner's background changes how the same concept should be explained, adaptive tutoring (AT) reserves space for learner state. If correctness depends mainly on outside material, evidence-grounded reasoning (EG) reserves space for source evidence. Because these needs can overlap, $R(x)$ is selected by the priority rule
 \begin{equation}
@@ -148,7 +148,7 @@ R(x)=
 \mathrm{EG}, & \mathrm{otherwise}.
 \end{cases}
 \end{equation}
-The order reflects this generic constraint strength. Sequence changes the whole response, explicit criteria constrain evaluation, learner state shapes delivery, and evidence is the safe fallback when the request does not clearly require one of the first three prompt shapes.
+The order reflects this generic constraint strength. Sequence changes the whole response, explicit criteria constrain evaluation, learner state shapes delivery, and evidence is the default grounding route when the request does not clearly require one of the first three prompt shapes.
 
 Next, the supervisor uses a \emph{retrieval gate}: a binary control for whether external evidence enters the final tutor prompt. Inspired by selective-retrieval research, MARLET integrates this idea as a prompt-budget control that opens only when outside grounding is needed~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}:
 \begin{equation}
@@ -158,15 +158,15 @@ G(x)=
 0, & \mathrm{otherwise}.
 \end{cases}
 \end{equation}
-Thus $G(x)=1$ runs retrieval; $G(x)=0$ builds the same prompt without external chunks. If the first evidence bundle is empty, a stricter fallback gate may retry:
+Thus $G(x)=1$ runs retrieval; $G(x)=0$ builds the same prompt without external chunks. A stricter retry gate runs one raw-question pass only when the first bundle is empty:
 \begin{equation}
-G_{\rm fb}(x)=
+G_2(x)=
 \begin{cases}
-1, & D_0\ \mathrm{is\ empty\ and}\ s_{\rm ev}\ge \tau_{\rm fb},\\
+1, & D_0\ \mathrm{is\ empty\ and}\ s_{\rm ev}\ge \tau_2,\\
 0, & \mathrm{otherwise}.
 \end{cases}
 \end{equation}
-where $D_0$ is the evidence bundle from the first retrieval attempt. If $G_{\rm fb}(x)=1$, the system performs one additional retrieval pass using the raw question.
+where $D_0$ is the evidence bundle from the first retrieval attempt.
 
 \begin{figure*}[t]
 \centering
@@ -246,11 +246,11 @@ Here $I(y_0,z_2)$ is the number of issues found by the critic. Issues include mi
 
 We validate the framework on two public educational benchmarks. TutorEval~\cite{chevalier2024sciencetutors} contains 834 expert-written science tutoring questions paired with long STEM chapters and teaching key points, so responses must explain, disambiguate, and stay chapter-grounded. EduBench~\cite{xu2025edubench} covers nine educational scenarios, including question answering, error correction, personalized support, emotional support, grading, teaching-material generation, and personalized content creation. Its rows contain prompts, scenario metadata, and reference model predictions; our adapter converts them into consensus-style supervision through score statistics and rubric terms.
 
-The primary validation compares three context controllers under matched infrastructure, with a \textsc{Qwen3.5-27B-FP8} replication checking backbone sensitivity. Classical RAG retrieves first from the raw standardized prompt; visible learner profile, student answer, dialogue, and rubric text remain available to its tutor prompt, so the baseline is not deprived of pedagogical context. Its limitation is controller order: retrieval happens before specialist summaries can shape search. Agentic RAG runs the same planner, diagnoser, and rubric modules before retrieval, but retrieval is always on. \textsc{MARLET} keeps the same specialists and retriever, then adds supervisory routing, conditional retrieval, and fallback control. We report quality and cost together because only context construction changes.
+The primary validation compares three context controllers under matched infrastructure, with a \textsc{Qwen3.5-27B-FP8} replication checking backbone sensitivity. Classical RAG retrieves first from the raw standardized prompt; visible learner profile, student answer, dialogue, and rubric text remain available to its tutor prompt, so the baseline is not deprived of pedagogical context. Its limitation is controller order: retrieval happens before specialist summaries can shape search. Agentic RAG runs the same planner, diagnoser, and rubric modules before retrieval, but retrieval is always on. \textsc{MARLET} keeps the same specialists and retriever, then adds supervisory routing, conditional retrieval, and retry control. We report quality and cost together because only context construction changes.
 
 \subsection{Implementation Details}
 
-All controllers use the same deployed Python framework, corpus, hybrid text index, reranker, tutor, critic, and metric code; only context assembly differs. Runs use \textsc{Qwen3.5-4B} and \textsc{Qwen3.5-27B-FP8}, reasoning budget 512, temperature 0.15, and response cap $N{=}900$. The checked server \texttt{benwulab-Lambda-Vector} runs Ubuntu Linux 6.8 and Python 3.10.12 with two NVIDIA RTX 6000 Ada GPUs (49140 MiB each), driver 570.207, and CUDA 12.8. We set $K{=}3$, $Q{=}4$, and $L{=}6000$; router thresholds $(\tau_{\rm mid},\tau_{\rm plan},\tau_{\rm fb})=(0.35,0.42,0.45)$; retriever weights $(w_{\rm lex},w_{\rm char},w_{\rm svd})=(0.58,0.17,0.25)$; reranker weights $(\alpha_{\rm base},\alpha_{\rm tok},\alpha_{\rm title},\alpha_{\rm phr},\alpha_{\rm num},\alpha_{\rm len})=(0.55,0.20,0.10,0.06,0.05,0.04)$; and packing weight $\lambda{=}0.68$.
+All controllers use the same deployed Python framework, corpus, hybrid text index, reranker, tutor, critic, and metric code; only context assembly differs. Runs use \textsc{Qwen3.5-4B} and \textsc{Qwen3.5-27B-FP8}, reasoning budget 512, temperature 0.15, and response cap $N{=}900$. The checked server \texttt{benwulab-Lambda-Vector} runs Ubuntu Linux 6.8 and Python 3.10.12 with two NVIDIA RTX 6000 Ada GPUs (49140 MiB each), driver 570.207, and CUDA 12.8. We set $K{=}3$, $Q{=}4$, and $L{=}6000$; router thresholds $(\tau_{\rm mid},\tau_{\rm plan},\tau_2)=(0.35,0.42,0.45)$; retriever weights $(w_{\rm lex},w_{\rm char},w_{\rm svd})=(0.58,0.17,0.25)$; reranker weights $(\alpha_{\rm base},\alpha_{\rm tok},\alpha_{\rm title},\alpha_{\rm phr},\alpha_{\rm num},\alpha_{\rm len})=(0.55,0.20,0.10,0.06,0.05,0.04)$; and packing weight $\lambda{=}0.68$.
 
 Evaluation is dataset-aware, and all reported quality scores are automatic proxies rather than official benchmark or human grades. Higher is better for quality metrics; lower is better for latency, tokens, and calls. Inspired by RAG evaluation work~\cite{ru2024ragchecker}, we separate answer overlap, rubric fulfillment, grounding, and resource cost. Token-F1 rewards overlap with the reference while balancing extra generated tokens against missed reference tokens. Rubric coverage checks whether each benchmark rubric item is actually expressed; near-verbatim coverage receives credit, and partial token overlap must include content-bearing words so that generic feedback is not over-rewarded. Latency is wall-clock time per sample; total tokens are prompt plus completion tokens; backbone calls count logged LLM requests.
 
