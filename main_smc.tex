@@ -40,7 +40,7 @@ Learning-State-Aware Educational Tutoring
 \maketitle
 
 \begin{abstract}
-Large language models can generate fluent tutoring responses, but they need grounding that respects both instructional evidence and the learner's current state. Classical retrieval-augmented generation (RAG) grounds generation through a fixed retrieve-then-read controller: the query is matched against a corpus, and the generator reads the returned passages. That design is often insufficient for tutoring, where the same surface question can require different evidence, scaffolding, or rubric constraints for different learners. We propose \textsc{MARLET} (Multi-Agent Retrieval for Learning-State-Aware Educational Tutoring), which integrates supervisory routing, planning, learner-state diagnosis, rubric analysis, conditional retrieval, tutoring, and bounded critique around a fixed tutor. \textsc{MARLET} builds a tutoring brief from the sample, inferred learning state, and answer criteria, then invokes retrieval only when the route indicates that external evidence is needed. Under matched backbones, corpus, reranker, and response budget on TutorEval and EduBench, \textsc{MARLET} improves fixed-tutor quality metrics while using fewer tokens; on EduBench it also reduces latency and backbone-call count. These results support the central claim: educational grounding should be controlled by pedagogical state and task regime, not by the surface query alone.
+Large language models can generate fluent tutoring responses, but they need grounding that respects both instructional evidence and the learner's current state. Classical retrieval-augmented generation (RAG) grounds generation through a fixed retrieve-then-read controller: the query is matched against a corpus, and the generator reads the returned passages. That design is often insufficient for tutoring, where the same surface question can require different evidence, scaffolding, or rubric constraints for different learners. We propose \textsc{MARLET} (Multi-Agent Retrieval for Learning-State-Aware Educational Tutoring), which integrates supervisory routing, planning, learner-state diagnosis, rubric analysis, conditional retrieval, tutoring, and bounded critique around a fixed tutor. \textsc{MARLET} builds a tutoring brief from the sample, inferred learning state, and answer criteria, then invokes retrieval only when the route indicates that external evidence is needed. Under matched backbones, corpus, reranker, and response cap on TutorEval and EduBench, \textsc{MARLET} improves fixed-tutor quality metrics while using fewer tokens; on EduBench it also reduces latency and backbone-call count. These results support the central claim: educational grounding should be controlled by pedagogical state and task regime, not by the surface query alone.
 \end{abstract}
 
 \section{Introduction}
@@ -59,7 +59,7 @@ The experiments validate the framework rather than present a model leaderboard. 
 % Educational tutoring includes explanation, misconception diagnosis, rubric-based scoring, and next-step feedback. These subproblems require different grounding signals, so retrieval recall alone is not enough~\cite{macina2025mathtutorbench,srinivasa2025tutorbench}. 
 Our validation on TutorEval and EduBench shows that the same tutor scores higher when fed context assembled by \textsc{MARLET}; on EduBench it also reduces latency and backbone calls.
 
-\noindent\textbf{Contributions.} (i) We propose \textsc{MARLET}, a learning-state-aware multi-agent retrieval framework with a supervisory router, planner, diagnoser, rubric module, conditional retriever, tutor, and critic. (ii) We formalize the router and retrieval gate as transparent, training-free controls over learner state, rubric constraints, and external evidence. (iii) We validate against classical RAG and Agentic RAG baselines on two educational benchmarks under shared backbone, corpus, reranker, and response budget.
+\noindent\textbf{Contributions.} (i) We propose \textsc{MARLET}, a learning-state-aware multi-agent retrieval framework with a supervisory router, planner, diagnoser, rubric module, conditional retriever, tutor, and critic. (ii) We formalize the router and retrieval gate as transparent, training-free controls over learner state, rubric constraints, and external evidence. (iii) We validate against classical RAG and Agentic RAG baselines on two educational benchmarks under shared backbone, corpus, reranker, and response cap.
 
 \section{Related Work}
 
@@ -74,19 +74,15 @@ Recent educational work shows that tutoring quality requires more than answer ac
 
 \textsc{MARLET} turns one educational request into a grounded tutor response. It is a RAG controller rather than a set of independent answer agents: every intermediate output is converted into context for one final LLM tutor prompt. Its design integrates three principles: route before retrieval, exchange typed records rather than free-form chat, and retrieve only when the tutoring brief needs external evidence. The flow is: standardize the entry, score routing cues, run active specialists in parallel, merge their outputs with retrieved evidence, serialize one augmented prompt, and run one critic revision if needed.
 
-\subsection{Input Entry and Prompt Budget}
+\subsection{Input Entry and Inference Caps}
 
 For one sample, \textsc{MARLET} first standardizes all visible fields into
 \begin{equation}
-x=(q,o,c,h,r,v,m).
+x=(q,o,c,h,r,v).
 \end{equation}
-Here, $q$ is the student question or task prompt; $o$ is an optional answer-option list; $c$ is optional inline context such as a chapter excerpt; $h$ is recent dialogue; $r$ is an optional rubric or answer-criteria list; $v$ is an optional image list; and $m$ stores dataset identifiers or formatting metadata. Empty fields are allowed, so the same representation covers factual questions, grading requests, feedback requests, and planning requests.
+Here, $q$ is the student question or task prompt; $o$ is an optional answer-option list; $c$ is optional inline context such as a chapter excerpt; $h$ is recent dialogue; $r$ is an optional rubric or answer-criteria list; and $v$ is an optional image list. Empty fields are allowed, so the same representation covers factual questions, grading requests, feedback requests, and planning requests.
 
-The only student-facing output is the final tutor answer $y$. \textsc{MARLET} also keeps internal grounding records: a route record, which names the selected tutoring mode and which modules run; an evidence bundle $D$, which contains packed retrieved chunks; and citation identifiers, which link chunks in $D$ to their sources. These records are not separate answers. Planner output, learner-state summary, rubric summary, and $D$ are assembled as prompt blocks before the LLM tutor generates $y$. The shared budget is
-\[
-B=(K,Q,L,N),
-\]
-where $K$ is the maximum number of planner retrieval queries, $Q$ is the maximum number of evidence chunks/tool calls, $L$ is the character budget for packed evidence, and $N$ is the response-token cap.
+The only student-facing output is the final tutor answer $y$. \textsc{MARLET} also keeps internal grounding records: a route record, which names the selected tutoring mode and which modules run; an evidence bundle $D$, which contains packed retrieved chunks; and citation identifiers, which link chunks in $D$ to their sources. These records are not separate answers. Planner output, learner-state summary, rubric summary, and $D$ are assembled as prompt blocks before the LLM tutor generates $y$. Fixed inference caps keep the process bounded: $K$ caps planner retrieval queries, $Q$ caps packed chunks/tool calls, $L$ caps packed-evidence length, and $N$ caps response tokens.
 
 \begin{table}[t]
 \centering
@@ -97,28 +93,27 @@ where $K$ is the maximum number of planner retrieval queries, $Q$ is the maximum
 \toprule
 \multicolumn{2}{@{}l@{}}{\textbf{Algorithm 1: \textsc{MARLET} Inference Process}}\\
 \midrule
-\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Require:} entry $x=(q,o,c,h,r,v,m)$, budget $B=(K,Q,L,N)$, index $\mathcal{I}$, thresholds $\tau$.}\\
+\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Require:} entry $x=(q,o,c,h,r,v)$, caps $K,Q,L,N$, index $\mathcal{I}$, thresholds $\tau$.}\\
 \multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Return:} answer $y$ and internal grounding fields $(R,D,\mathrm{citations})$.}\\
 \midrule
 1: & $b\leftarrow \mathrm{concat}(q,c,r,h)$; $s\leftarrow\mathrm{CueScores}(b)$\\
-2: & $(R,G,\mathrm{sw})\leftarrow \mathrm{Route}(s,r,v,\tau)$\\
-3: & $z_0\leftarrow \mathrm{Context}(x,R,G,B)$\\
-4: & \textbf{parallel do}\\
-5: & \quad $p=(\mathrm{strategy},P)\leftarrow\mathrm{Planner}(z_0)$\\
-6: & \quad $\ell\leftarrow\mathrm{Diagnoser}(z_0)$\\
-7: & \quad \textbf{if} $\mathrm{sw.rubric}$ \textbf{then} $u\leftarrow\mathrm{Rubric}(z_0)$ \textbf{else} $u\leftarrow\mathrm{DefaultCriteria}()$\\
-8: & \textbf{end parallel}\\
-9: & $P\leftarrow\mathrm{cap}(P,K)$; $z_1\leftarrow(z_0,p,\ell,u)$; $D\leftarrow\emptyset$\\
-10: & \textbf{if} $G=1$ \textbf{then}\\
-11: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},P)),q),Q,L)$\\
-12: & \textbf{end if}\\
-13: & $y_0\leftarrow A_{\rm tutor}(\mathrm{Prompt}(q,o,h,p,\ell,u,D,c))$\\
-14: & \textbf{if} $D=\emptyset$ \textbf{and} $s_{\rm ev}\ge\tau_2$ \textbf{then}\\
-15: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Search}(\mathcal{I},[q]),q),Q,L)$\\
-16: & \quad $y_0\leftarrow A_{\rm tutor}(\mathrm{Prompt}(q,o,h,p,\ell,u,D,c))$\\
-17: & \textbf{end if}\\
-18: & \textbf{if} $\mathrm{sw.critic}$ \textbf{then} $y\leftarrow A_{\rm crit}(y_0,z_1,D)$ \textbf{else} $y\leftarrow y_0$\\
-19: & \textbf{return} $y,(R,D,\mathrm{ids}(D))$\\
+2: & $(R,G)\leftarrow \mathrm{Route}(s,r,v,\tau)$\\
+3: & \textbf{parallel do}\\
+4: & \quad $p=(\mathrm{strategy},P)\leftarrow\mathrm{Planner}(x,R,G)$\\
+5: & \quad $\ell\leftarrow\mathrm{Diagnoser}(q,h)$\\
+6: & \quad \textbf{if} $r\ne\emptyset$ \textbf{or} $R=\mathrm{RF}$ \textbf{then} $u\leftarrow\mathrm{Rubric}(x,R)$ \textbf{else} $u\leftarrow\mathrm{DefaultCriteria}()$\\
+7: & \textbf{end parallel}\\
+8: & $P\leftarrow\mathrm{cap}(P,K)$; $D\leftarrow\emptyset$\\
+9: & \textbf{if} $G=1$ \textbf{then}\\
+10: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},P)),q),Q,L)$\\
+11: & \textbf{end if}\\
+12: & $y_0\leftarrow A_{\rm tutor}(\mathrm{Prompt}(q,o,h,p,\ell,u,D,c),N)$\\
+13: & \textbf{if} $D=\emptyset$ \textbf{and} $s_{\rm ev}\ge\tau_2$ \textbf{then}\\
+14: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Search}(\mathcal{I},[q]),q),Q,L)$\\
+15: & \quad $y_0\leftarrow A_{\rm tutor}(\mathrm{Prompt}(q,o,h,p,\ell,u,D,c),N)$\\
+16: & \textbf{end if}\\
+17: & $y\leftarrow\mathrm{CriticOnce}(y_0,q,h,p,\ell,u,D,r)$\\
+18: & \textbf{return} $y,(R,D,\mathrm{ids}(D))$\\
 \bottomrule
 \end{tabular}
 \label{tab:marlet_pseudocode}
@@ -132,7 +127,7 @@ b(x)=\mathrm{concat}(q,c,r,h),
 \end{equation}
 where $\mathrm{concat}(\cdot)$ means that the question, inline context, rubric text, and dialogue turns are joined into one normalized string. Images remain available to the tutor, but they are not converted into the textual routing score.
 
-The router uses five cue families $j\in\{\mathrm{ev},\mathrm{co},\mathrm{ru},\mathrm{pl},\mathrm{tu}\}$ for evidence, coordination, rubric, planning, and tutoring. Each family controls a different downstream decision: evidence cues open retrieval, coordination cues indicate that several constraints must be merged, rubric cues activate criterion checking, planning cues route to lesson sequencing, and tutoring cues activate learner-state adaptation. Each family has a keyword set $W_j$. Evidence cues include \emph{source}, \emph{document}, \emph{chapter}, and \emph{verification}; rubric cues include \emph{score}, \emph{criteria}, and \emph{comment}; planning cues include \emph{lesson}, \emph{sequence}, and \emph{exercise plan}; tutoring cues include \emph{student}, \emph{hint}, \emph{misconception}, \emph{explain}, and \emph{confused}. Let $M_j(x)$ be the number of cues from $W_j$ that appear in $b(x)$. The cue score is
+The router uses four cue families $j\in\{\mathrm{ev},\mathrm{ru},\mathrm{pl},\mathrm{tu}\}$ for evidence, rubric, planning, and tutoring. Each family controls a downstream decision: evidence cues open retrieval, rubric cues activate criterion checking, planning cues route to lesson sequencing, and tutoring cues activate learner-state adaptation. Each family has a keyword set $W_j$. Evidence cues include \emph{source}, \emph{document}, \emph{chapter}, and \emph{verification}; rubric cues include \emph{score}, \emph{criteria}, and \emph{comment}; planning cues include \emph{lesson}, \emph{sequence}, and \emph{exercise plan}; tutoring cues include \emph{student}, \emph{hint}, \emph{misconception}, \emph{explain}, and \emph{confused}. Let $M_j(x)$ be the number of cues from $W_j$ that appear in $b(x)$. The cue score is
 \begin{equation}
 s_j(x)=\frac{M_j(x)}{|W_j|},
 \end{equation}
@@ -150,7 +145,7 @@ R(x)=
 \end{equation}
 The order reflects this generic constraint strength. Sequence changes the whole response, explicit criteria constrain evaluation, learner state shapes delivery, and evidence is the default grounding route when the request does not clearly require one of the first three prompt shapes.
 
-Next, the supervisor uses a \emph{retrieval gate}: a binary control for whether external evidence enters the final tutor prompt. Inspired by selective-retrieval research, MARLET integrates this idea as a prompt-budget control that opens only when outside grounding is needed~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}:
+Next, the supervisor uses a \emph{retrieval gate}: a binary control for whether external evidence enters the final tutor prompt. Inspired by selective-retrieval research, MARLET integrates this idea as a prompt-allocation control that opens only when outside grounding is needed~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}:
 \begin{equation}
 G(x)=
 \begin{cases}
@@ -177,21 +172,14 @@ where $D_0$ is the evidence bundle from the first retrieval attempt.
 
 \subsection{Parallel Agent Brief Construction}
 
-The router and gates above decide what the final prompt should prioritize; MARLET then constructs the prompt content as a shared tutoring brief. Inspired by tool-using and multi-agent LLM systems~\cite{yao2023react,wu2024autogen}, planning chooses the local answer strategy and search intents, while coordination means typed shared-state assembly: specialists read the same input, write their own fields, and a coordinator merges them before retrieval and generation. The initial context is
-\begin{equation}
-z_0=(x,R(x),G(x),B).
-\end{equation}
-From $z_0$, the planner, diagnoser, and rubric module run in parallel when their switches are active:
+The router and gates above decide what the final prompt should prioritize; MARLET then constructs the prompt content as a shared tutoring brief. Inspired by tool-using and multi-agent LLM systems~\cite{yao2023react,wu2024autogen}, planning chooses the local answer strategy and search intents, while coordination means typed shared-state assembly: specialists read the same input, write their own fields, and a coordinator merges them before retrieval and generation. The planner, diagnoser, and rubric module run in parallel:
 \begin{equation}
 (p,\ell,u)=
-\big(A_{\rm plan}(z_0),A_{\rm diag}(z_0),A_{\rm rub}(z_0)\big).
+\big(A_{\rm plan}(x,R,G),A_{\rm diag}(q,h),A_{\rm rub}(x,R)\big).
 \end{equation}
-Here $p$ is the planner output, consisting of a response strategy and up to $K$ retrieval queries; $\ell$ is the visible learner-state summary; and $u$ is the rubric summary or default checklist. In parallel execution, all active agents read $z_0$ and return typed outputs independently, so the tutor need not infer plan, learner state, and rubric from one overloaded query.
+Here $p$ is the planner output, consisting of a response strategy and up to $K$ retrieval queries; $\ell$ is the visible learner-state summary; and $u$ is the rubric summary or default checklist. In parallel execution, the agents read the same standardized entry and route, then return typed outputs independently, so the tutor need not infer plan, learner state, and rubric from one overloaded query.
 
-The planner starts its query set with $q$, adds a compact key-term query from longer tokens in $q$, adds a context-aware query when $c$ is present, and adds a rubric-aware query when $r$ is present. Duplicate queries are removed and the list is capped by $K$. The diagnoser reflects tutoring work showing that LLM tutor quality depends on student-context features~\cite{liu2026agenttutor,borchers2025adaptivity}. It infers only visible state from $q$ and $h$: level defaults to intermediate, beginner or advanced cues can override it, dialogue cues can add misconceptions, and style cues can request step-by-step, concise, or analogy-based explanation. This is not a persistent student profile. The rubric module preserves explicit criteria when available; otherwise it supplies default criteria of correctness, clarity, scaffolding, and actionable feedback. The merged tutoring brief is
-\begin{equation}
-z_1=(z_0,p,\ell,u).
-\end{equation}
+The planner starts its query set with $q$, adds a compact key-term query from longer tokens in $q$, adds a context-aware query when $c$ is present, and adds a rubric-aware query when $r$ is present. Duplicate queries are removed and the list is capped by $K$. The diagnoser reflects tutoring work showing that LLM tutor quality depends on student-context features~\cite{liu2026agenttutor,borchers2025adaptivity}. It infers only visible state from $q$ and $h$: level defaults to intermediate, beginner or advanced cues can override it, dialogue cues can add misconceptions, and style cues can request step-by-step, concise, or analogy-based explanation. This is not a persistent student profile. The rubric module preserves explicit criteria when available; otherwise it supplies default criteria of correctness, clarity, scaffolding, and actionable feedback. The merged tutoring brief is the typed record $(R,G,p,\ell,u)$.
 
 \subsection{Conditional Retrieval and Evidence Packing}
 
@@ -213,7 +201,7 @@ The reranker then scores each candidate against the original question:
 \end{equation}
 Here $o_{\rm tok}$ is token overlap with $q$, $o_{\rm title}$ is title-token overlap, $m_{\rm phr}$ is an exact phrase-match flag, $o_{\rm num}$ is numeric overlap, $b_{\rm len}$ rewards moderate chunk length, and the $\alpha$ terms are fixed reranker weights. The learner summary $\ell$ affects retrieval through the route and planner queries, not these weights.
 
-Evidence packing integrates the relevance-diversity tradeoff used in MMR-style selection~\cite{carbonell1998mmr}: the context should be useful, but repeated chunks should not consume the limited evidence budget. For each candidate chunk $d$, \textsc{MARLET} computes
+Evidence packing integrates the relevance-diversity tradeoff used in MMR-style selection~\cite{carbonell1998mmr}: the context should be useful, but repeated chunks should not consume the limited evidence space. For each candidate chunk $d$, \textsc{MARLET} computes
 \begin{equation}
 \mathrm{pack}(d)=\lambda\,\mathrm{rank}(q,d)-(1-\lambda)\,\mathrm{repeat}(d).
 \end{equation}
@@ -221,25 +209,13 @@ Here $\mathrm{repeat}(d)$ is the largest sentence overlap between $d$ and select
 
 \subsection{Tutor Generation and Critic Revision}
 
-The final tutor context is
+This is where retrieval and agent outputs converge: $(R,G,p,\ell,u)$ supplies route, plan, learner-state, and rubric fields, while $D$ supplies compact cited evidence. The retriever does not answer; its chunks become an evidence block. The final prompt contains task fields, pedagogical brief, evidence or inline context, and output requirements. The tutor is the LLM-driven answer writer:
 \begin{equation}
-z_2=(z_1,D).
-\end{equation}
-This is where retrieval and agent outputs converge: $z_1$ supplies route, plan, learner-state, and rubric fields, while $D$ supplies compact cited evidence. The retriever does not answer; its chunks become an evidence block. The final prompt contains task fields, pedagogical brief, evidence or inline context, and output requirements. The tutor is the LLM-driven answer writer:
-\begin{equation}
-y_0=A_{\rm tutor}(z_2).
+y_0=A_{\rm tutor}(q,o,h,p,\ell,u,D,c).
 \end{equation}
 Its prompt contains $q$, optional answer options $o$, recent dialogue $h$, learner state $\ell$, plan $p$, rubric summary $u$, and either retrieved evidence $D$ or inline context $c$. The tutor is instructed to be correct, pedagogically useful, concise but not terse, include a next step when appropriate, and cite retrieved evidence with document markers.
 
-The critic performs one bounded revision pass:
-\begin{equation}
-y=
-\begin{cases}
-A_{\rm crit}(y_0,z_2), & I(y_0,z_2)>0,\\
-y_0, & I(y_0,z_2)=0 .
-\end{cases}
-\end{equation}
-Here $I(y_0,z_2)$ is the number of issues found by the critic. Issues include missing citation markers when $D$ is nonempty, uncovered rubric items from $r$, and answers that are too long for a beginner-facing state. If no issue is found, $y_0$ is returned unchanged; otherwise the critic rewrites once and the revised $y$ becomes the final answer.
+The critic performs one bounded revision pass. It checks for missing citation markers when $D$ is nonempty, uncovered rubric items from $r$, or an answer that is too long for a beginner-facing state. If no issue is found, $y=y_0$; otherwise the critic rewrites once using $(y_0,q,h,p,\ell,u,D,r)$ and the revised $y$ becomes the final answer.
 
 \section{Validation Experiments}
 \label{sec:results}
