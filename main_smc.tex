@@ -136,7 +136,7 @@ where ${\bf 1}[w\in b(x)]$ is $1$ when cue word or phrase $w$ appears in the blo
 \begin{equation}
 s_j(x)=\min\{1,\;a_j(x)+f_j(x)\}.
 \end{equation}
-Here $s_j(x)$ is the final control score for family $j$, and $f_j(x)$ is a small field bonus. Inline context raises evidence by $0.08$; images raise evidence by $0.05$ and coordination by $0.03$; an explicit rubric raises rubric by $0.20$; and dialogue raises tutoring by $\min(|h|/6,0.50)$, where $|h|$ is the number of dialogue turns. The scores are not probabilities. They are transparent switches that make the router's decision inspectable.
+Here $s_j(x)$ is the final control score for family $j$, and $f_j(x)$ is a small field bonus. Inline context raises evidence by $0.08$; images raise evidence by $0.05$ and coordination by $0.03$; an explicit rubric raises rubric by $0.20$; and dialogue raises tutoring by $\min(|h|/6,0.50)$, where $|h|$ is the number of dialogue turns. The scores and thresholds are not probabilities or learned parameters. They are normalized control switches in $[0,1]$: $0.35$ means a moderate cue signal is enough to activate tutoring or retrieval support, $0.42$ makes lesson planning stricter because planning changes the whole response structure, and $0.45$ is reserved for fallback retrieval after the first pass returns no evidence.
 
 The pedagogical regime $R(x)$ is selected in a fixed order:
 \begin{equation}
@@ -154,7 +154,7 @@ The retrieval gate implements the same selective-retrieval intuition studied in 
 \begin{equation}
 G(x)={\bf 1}[s_{\rm ev}(x)\ge 0.35\;\mathrm{or}\;R(x)=\mathrm{EG}].
 \end{equation}
-Thus retrieval runs only when the evidence score is at least $0.35$ or when the selected regime is evidence-grounded. A fallback gate is kept for missed evidence cases:
+Thus retrieval runs only when the evidence score reaches the moderate-support threshold $0.35$ or when the selected regime is evidence-grounded. A fallback gate is kept for missed evidence cases and uses the stricter $0.45$ threshold because it triggers an additional retrieval-and-tutor pass:
 \begin{equation}
 G_{\rm fb}(x)={\bf 1}[|D_0|=0\;\mathrm{and}\;s_{\rm ev}(x)\ge 0.45],
 \end{equation}
