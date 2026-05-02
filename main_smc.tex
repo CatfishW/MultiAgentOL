@@ -69,7 +69,7 @@ Full tutoring agents are related applications, not the main comparison class. Sy
 \section{Methodology}
 \label{sec:methodology}
 
-\textsc{MARLET} turns one domain request into a grounded response. It is a RAG controller rather than a set of independent answer agents: every intermediate output becomes context for one final LLM prompt. Its design integrates three principles: route before retrieval, exchange typed records instead of free-form chat, and retrieve only when the response brief needs evidence. The domain changes by replacing cue lexicons, default criteria, tools, and corpus; the flow remains standardize, route, run parallel specialists, execute bounded tools, retrieve conditionally, assemble one prompt, and critique once.
+\textsc{MARLET} turns one domain request into a grounded response by treating RAG as coordinated context construction. Every intermediate output becomes context for one final LLM prompt. Its design integrates three principles: route before retrieval, exchange typed records among LLM specialists, and retrieve evidence only after the response brief specifies what should be searched. The domain changes by replacing cue lexicons, default criteria, tools, and corpus; the flow remains standardize, route, run parallel specialists, execute bounded tools, retrieve conditionally, assemble one prompt, and critique once.
 
 \subsection{Input Entry and Inference Caps}
 
@@ -81,7 +81,7 @@ Here, $q$ is the question or task; $o$ answer options; $c$ inline context; $h$ r
 
 The only user-facing output is answer $y$. Internally, MARLET keeps a route record, evidence bundle $D$, tool observations $T$, and citations. Planner output, state summary, criteria summary, $T$, and $D$ become prompt blocks. Caps keep inference bounded: $K$ for planner/retrieval queries, $Q$ for chunks/tool calls, $L$ for evidence length, and $N$ for response tokens.
 
-The core design choice is to avoid asking one retrieval query to carry every constraint. MARLET instead fills three typed slots. The \emph{planner} writes $p=(a,P)$, where $a$ is an operating strategy and $P$ capped searchable intents. The \emph{state diagnoser} writes $\ell$, visible task state from $q$ and $h$ only; it is not a persistent profile. The \emph{criteria analyst} writes $u$, preserving explicit criteria $r$ or supplying a short correctness/clarity/evidence/actionability checklist. This separates search intent, task state, and answer requirements~\cite{liu2026agenttutor,borchers2025adaptivity}.
+The core design choice is to avoid asking one retrieval query to carry every constraint. MARLET instead fills three typed slots. The \emph{planner} writes $p=(a,P)$, where $a$ is an operating strategy and $P$ is a capped list of searchable intents. The \emph{state diagnoser} writes $\ell$, a visible-state summary inferred only from $q$ and $h$. The \emph{criteria analyst} writes $u$, preserving explicit criteria $r$ or supplying a short correctness/clarity/evidence/actionability checklist. This separates search intent, task state, and answer requirements~\cite{liu2026agenttutor,borchers2025adaptivity}.
 
 \begin{table}[t]
 \centering
@@ -132,7 +132,7 @@ s_j(x)=\frac{M_j(x)}{|W_j|},
 \end{equation}
 where $|W_j|$ is the cue-family size. Thresholds are fixed hyperparameters, not probabilities: $\tau_{\rm mid}$ requires repeated cues, $\tau_{\rm plan}$ is stricter because planning changes response structure, and $\tau_2$ permits retry only for strong evidence cues. Porting mainly replaces $W_j$ and default criteria.
 
-The supervisor then chooses a response regime, a prompt-priority decision made before retrieval. PL reserves space for sequence and dependencies; CF for evaluation rules; AR for user/task state; and EG for source evidence. Because needs can overlap, $R(x)$ is selected by
+The supervisor then chooses a response regime, a prompt-priority decision made before retrieval. The four regimes are planning (PL), criteria feedback (CF), adaptive response (AR), and evidence grounding (EG). PL reserves space for sequence and dependencies; CF for evaluation rules; AR for user/task state; and EG for source evidence. Because needs can overlap, $R(x)$ is selected by
 \begin{equation}
 R(x)=
 \begin{cases}
@@ -171,27 +171,27 @@ where $D_0$ is the evidence bundle from the first retrieval attempt.
 
 \subsection{Specialist Context Agents and Coordination}
 
-After routing, MARLET knows which prompt priority must be protected: sequence, criteria, adaptation, or evidence. It then builds a response brief through LLM-backed specialist agents inspired by tool-using and multi-agent systems~\cite{yao2023react,wu2024autogen}. These agents are not independent tutors and do not produce competing answers. They are brief writers: each receives the standardized entry, route decision, and a bounded tool set $\mathcal{U}$; returns a JSON-like typed record; and stops. The coordinator then assembles the records into one shared context.
+After routing, MARLET knows which prompt priority must be protected: sequence, criteria, adaptation, or evidence. It then builds a response brief through LLM-backed specialist agents inspired by tool-using and multi-agent systems~\cite{yao2023react,wu2024autogen}. Each specialist writes one context record rather than a final answer: it receives the standardized entry, route decision, and a bounded tool set $\mathcal{U}$; returns a JSON-like typed record; and stops. The coordinator then assembles the records into one shared context.
 
 The three records have different downstream uses. The planner's $P$ is the only specialist output consumed by retrieval; it converts the original request into compact search intents, which prevents long dialogue, criteria text, or user-state text from becoming retrieval noise. The state summary $\ell$ is used by the generator and critic to match explanation depth and response style to visible conditions. The criteria summary $u$ is used by the generator and critic to keep the answer aligned with explicit or default requirements. When no explicit criteria are present and the route is not criteria feedback, $u$ is filled by the same default checklist rather than by an extra LLM call.
 
-The tools are side-effect-free local functions, not open-ended autonomous actions: key-term extraction, inline-context inspection, dialogue-state inspection, criteria listing, and corpus search. Specialists may request these tools in their JSON output, and the coordinator also provides a small default observation to each specialist. Tool observations $T$ are capped by $Q$ and become prompt blocks; they do not directly answer the user. This gives the agents the same practical affordance used by coding assistants--inspect a local resource before writing--without adding unbounded multi-turn ReAct loops.
+The tools are side-effect-free local functions: key-term extraction, inline-context inspection, dialogue-state inspection, criteria listing, and corpus search. Specialists may request these tools in their JSON output, and the coordinator also provides a small default observation to each specialist. Tool observations $T$ are capped by $Q$ and inserted as prompt context. This gives the agents the same practical affordance used by coding assistants--inspect a local resource before writing--while keeping execution bounded.
 
 This is also the communication pattern among agents. MARLET uses fan-out/fan-in coordination: the coordinator sends the same normalized entry to active specialists in parallel, executes validated tool calls, fills deterministic fallbacks if any output is malformed, and merges $(R,G,p,\ell,u,T)$ into one response brief. If $G=1$, retrieval uses $P$ to build evidence bundle $D$; if $G=0$, the brief bypasses external chunks. In both cases, the generator receives explicit prompt blocks for plan, visible state, criteria, tool observations, and evidence instead of inferring these constraints from one overloaded query.
 
-\subsection{Conditional Retrieval as a Bounded Tool}
+\subsection{Conditional Retrieval and Evidence Assembly}
 
-Retrieval is an optional tool inside the coordination loop, not the main contribution. After the LLM specialists produce the response brief, the coordinator uses the gate $G$ to decide whether external evidence should enter the final prompt. If $G=0$, the generator receives the plan, visible state, criteria, and tool observations without retrieved chunks. If $G=1$, only the planner intents $P$ are sent to the corpus-search tool; long dialogue, criteria text, and state summaries stay in the generator prompt rather than becoming noisy retrieval queries.
+After the LLM specialists produce the response brief, the coordinator uses the gate $G$ to decide whether external evidence should enter the final prompt. If $G=0$, the generator receives the plan, visible state, criteria, and tool observations without retrieved chunks. If $G=1$, the planner intents $P$ are sent to the corpus-search tool, while dialogue, criteria, and state summaries remain separate prompt blocks. This keeps retrieval focused on search intent while still preserving the other constraints for generation.
 
-The retrieval tool returns a compact evidence bundle $D$:
+The retrieval path has four bounded steps:
 \begin{equation}
-D=\mathrm{Pack}(\mathrm{Search}(P,C), Q, L),
+D=\mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},P)),q),Q,L),
 \end{equation}
-where $C$ is the configured corpus or index, $Q$ limits the number of chunks, and $L$ limits the evidence length. In implementation, \textsc{Search} uses a fixed lightweight hybrid retriever and reranker shared by all controllers, and \textsc{Pack} keeps relevant but non-redundant snippets following the standard relevance-diversity intuition of MMR-style selection~\cite{carbonell1998mmr}. These details are held constant across baselines. The methodological point is the agentic control: LLM specialists decide what should be searched and whether search is needed, while retrieved evidence is only one typed block that later converges with the other agent outputs.
+where $\mathcal{I}$ is the configured corpus index, \textsc{Search} retrieves candidates for the intents in $P$, \textsc{Dedup} merges repeated chunks, \textsc{Rerank} scores candidates against the original question $q$, and \textsc{Pack} selects at most $Q$ relevant and non-redundant snippets under length cap $L$. The relevance-diversity packing follows the intuition of MMR-style selection~\cite{carbonell1998mmr}. The result is the evidence bundle $D$, a typed prompt block that later converges with the plan, state, criteria, and tool observations.
 
 \subsection{Generation and Critic Revision}
 
-This is where retrieval and agent outputs converge: $(R,G,p,\ell,u,T)$ supplies route, plan, state, criteria, and tool-observation fields, while $D$ supplies compact cited evidence. The retriever does not answer; its chunks become an evidence block. The final prompt contains task fields, response brief, evidence or inline context, and output requirements. The generator is the LLM-driven answer writer:
+This is where retrieval and agent outputs converge: $(R,G,p,\ell,u,T)$ supplies route, plan, state, criteria, and tool-observation fields, while $D$ supplies compact cited evidence. The final prompt contains task fields, response brief, evidence or inline context, and output requirements. The generator is the LLM-driven answer writer:
 \begin{equation}
 y_0=A_{\rm gen}(q,o,h,p,\ell,u,T,D,c).
 \end{equation}
