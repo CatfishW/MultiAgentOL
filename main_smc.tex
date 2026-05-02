@@ -128,11 +128,11 @@ b(x)=\mathrm{concat}(q,c,r,h),
 \end{equation}
 where $\mathrm{concat}(\cdot)$ means that the question, inline context, rubric text, and dialogue turns are joined into one normalized string. Images and metadata are not converted into text; they only affect field bonuses described below.
 
-The router uses five cue families $j\in\{\mathrm{ev},\mathrm{co},\mathrm{ru},\mathrm{pl},\mathrm{tu}\}$ for evidence, coordination, rubric, planning, and tutoring. These families are defined because each one controls a different downstream decision: evidence cues open retrieval, coordination cues indicate that multiple specialist agents should assemble the brief, rubric cues activate criterion checking, planning cues route to lesson sequencing, and tutoring cues activate learner-state adaptation. Each family has a keyword set $W_j$. Evidence cues include \emph{source}, \emph{document}, \emph{chapter}, and \emph{verification}; rubric cues include \emph{score}, \emph{criteria}, and \emph{comment}; planning cues include \emph{lesson}, \emph{sequence}, and \emph{exercise plan}; tutoring cues include \emph{student}, \emph{hint}, \emph{misconception}, \emph{explain}, and \emph{confused}. The raw cue score is
+The router uses five cue families $j\in\{\mathrm{ev},\mathrm{co},\mathrm{ru},\mathrm{pl},\mathrm{tu}\}$ for evidence, coordination, rubric, planning, and tutoring. These families are defined because each one controls a different downstream decision: evidence cues open retrieval, coordination cues indicate that multiple specialist agents should assemble the brief, rubric cues activate criterion checking, planning cues route to lesson sequencing, and tutoring cues activate learner-state adaptation. Each family has a keyword set $W_j$. Evidence cues include \emph{source}, \emph{document}, \emph{chapter}, and \emph{verification}; rubric cues include \emph{score}, \emph{criteria}, and \emph{comment}; planning cues include \emph{lesson}, \emph{sequence}, and \emph{exercise plan}; tutoring cues include \emph{student}, \emph{hint}, \emph{misconception}, \emph{explain}, and \emph{confused}. Let $M_j(x)$ be the number of cues from $W_j$ that appear in $b(x)$. The raw cue score is simply
 \begin{equation}
-a_j(x)=\frac{1}{|W_j|}\sum_{w\in W_j}{\bf 1}[w\in b(x)],
+a_j(x)=\frac{M_j(x)}{|W_j|},
 \end{equation}
-where ${\bf 1}[w\in b(x)]$ is $1$ when cue word or phrase $w$ appears in the blob and $0$ otherwise. This score is then adjusted by visible fields:
+where $|W_j|$ is the number of cues in family $j$. This score is then adjusted by visible fields:
 \begin{equation}
 s_j(x)=\min\{1,\;a_j(x)+f_j(x)\}.
 \end{equation}
@@ -142,8 +142,8 @@ The pedagogical regime $R(x)$ is selected in a fixed order:
 \begin{equation}
 R(x)=
 \begin{cases}
-\mathrm{LP}, & s_{\rm pl}\ge \max(s_{\rm ru},s_{\rm tu},0.42),\\
-\mathrm{RF}, & s_{\rm ru}\ge \max(s_{\rm tu},0.35),\\
+\mathrm{LP}, & s_{\rm pl}\ge s_{\rm ru},\ s_{\rm pl}\ge s_{\rm tu},\ s_{\rm pl}\ge0.42,\\
+\mathrm{RF}, & s_{\rm ru}\ge s_{\rm tu},\ s_{\rm ru}\ge0.35,\\
 \mathrm{AT}, & s_{\rm tu}\ge 0.35,\\
 \mathrm{EG}, & \mathrm{otherwise}.
 \end{cases}
@@ -152,11 +152,19 @@ LP, RF, AT, and EG mean lesson planning, rubric feedback, adaptive tutoring, and
 
 The retrieval gate implements the same selective-retrieval intuition studied in adaptive RAG: evidence is requested when the sample appears to need external grounding rather than being forced for every input~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}. The gate is
 \begin{equation}
-G(x)={\bf 1}[s_{\rm ev}(x)\ge 0.35\;\mathrm{or}\;R(x)=\mathrm{EG}].
+G(x)=
+\begin{cases}
+1, & s_{\rm ev}\ge 0.35\ \mathrm{or}\ R(x)=\mathrm{EG},\\
+0, & \mathrm{otherwise}.
+\end{cases}
 \end{equation}
 Thus retrieval runs only when the evidence score reaches the moderate-support threshold $0.35$ or when the selected regime is evidence-grounded. A fallback gate is kept for missed evidence cases and uses the stricter $0.45$ threshold because it triggers an additional retrieval-and-tutor pass:
 \begin{equation}
-G_{\rm fb}(x)={\bf 1}[|D_0|=0\;\mathrm{and}\;s_{\rm ev}(x)\ge 0.45],
+G_{\rm fb}(x)=
+\begin{cases}
+1, & D_0\ \mathrm{is\ empty\ and}\ s_{\rm ev}\ge 0.45,\\
+0, & \mathrm{otherwise}.
+\end{cases}
 \end{equation}
 where $D_0$ is the evidence bundle from the first retrieval attempt. If $G_{\rm fb}(x)=1$, the system performs one additional retrieval pass using the raw question.
 
@@ -182,7 +190,7 @@ Here $p$ is the planner output, consisting of a short operating plan and up to $
 
 The planner starts its query set with $q$, adds a compact key-term query from longer tokens in $q$, adds a context-aware query when $c$ is present, and adds a rubric-aware query when $r$ is present. Duplicate queries are removed and the list is capped by $K$. The diagnoser reflects tutoring work showing that LLM tutor quality depends on student-context features~\cite{liu2026agenttutor,borchers2025adaptivity}. It infers only visible state from $q$ and $h$: level defaults to intermediate, beginner or advanced cues can override it, dialogue cues can add misconceptions, and style cues can request step-by-step, concise, or analogy-based explanation. This is not a persistent student profile. The rubric module preserves explicit criteria when available; otherwise it supplies default criteria of correctness, clarity, scaffolding, and actionable feedback. The merged tutoring brief is
 \begin{equation}
-z_1=z_0\cup\{p,\ell,u\}.
+z_1=(z_0,p,\ell,u).
 \end{equation}
 
 \subsection{Conditional Retrieval and Evidence Packing}
@@ -202,18 +210,17 @@ The reranker then scores each candidate against the original question:
 \end{equation}
 In this formula, $o_{\rm tok}$ is token overlap with $q$, $o_{\rm title}$ is title-token overlap, $m_{\rm phr}$ is an exact phrase-match flag, $o_{\rm num}$ is numeric overlap, and $b_{\rm len}$ rewards moderate chunk length. The learner summary $\ell$ does not directly change these weights; personalization affects retrieval through the route and planner queries.
 
-Evidence packing follows the relevance-diversity tradeoff used in MMR-style selection~\cite{carbonell1998mmr}: the context should be useful, but repeated chunks should not consume the limited evidence budget. Let $U$ be the reranked candidate pool and $S$ be the set already selected. The next chunk is
+Evidence packing follows the relevance-diversity tradeoff used in MMR-style selection~\cite{carbonell1998mmr}: the context should be useful, but repeated chunks should not consume the limited evidence budget. For each candidate chunk $d$, \textsc{MARLET} computes
 \begin{equation}
-d^\star=\arg\max_{d\in U\setminus S}
-.68\,\mathrm{rank}(q,d)-.32\,\mathrm{red}(d,S),
+\mathrm{pack}(d)=0.68\,\mathrm{rank}(q,d)-0.32\,\mathrm{repeat}(d).
 \end{equation}
-where $\mathrm{red}(d,S)$ is the maximum sentence overlap between $d$ and any chunk already in $S$. Selection stops at $Q=4$ chunks or the $L=6000$ character limit. The resulting evidence bundle is $D$.
+Here $\mathrm{rank}(q,d)$ is the reranker score above, and $\mathrm{repeat}(d)$ is the largest sentence overlap between $d$ and the chunks already selected. The packer repeatedly adds the remaining chunk with the highest $\mathrm{pack}(d)$ score. Selection stops at $Q=4$ chunks or the $L=6000$ character limit, and the selected chunks form the evidence bundle $D$.
 
 \subsection{Tutor Generation and Critic Revision}
 
 The final tutor context is
 \begin{equation}
-z_2=z_1\cup\{D\}.
+z_2=(z_1,D).
 \end{equation}
 The tutor is the LLM-driven answer writer:
 \begin{equation}
@@ -225,11 +232,11 @@ The critic performs one bounded revision pass:
 \begin{equation}
 y=
 \begin{cases}
-A_{\rm crit}(y_0,z_2), & I(y_0,z_2)\neq\emptyset,\\
-y_0, & I(y_0,z_2)=\emptyset .
+A_{\rm crit}(y_0,z_2), & I(y_0,z_2)>0,\\
+y_0, & I(y_0,z_2)=0 .
 \end{cases}
 \end{equation}
-Here $I(y_0,z_2)$ is the issue list found by the critic. Issues include missing citation markers when $D$ is nonempty, uncovered rubric items from $r$, and answers that are too long for a beginner-facing state. If no issue is found, $y_0$ is returned unchanged; otherwise the critic rewrites once and the revised $y$ becomes the final answer.
+Here $I(y_0,z_2)$ is the number of issues found by the critic. Issues include missing citation markers when $D$ is nonempty, uncovered rubric items from $r$, and answers that are too long for a beginner-facing state. If no issue is found, $y_0$ is returned unchanged; otherwise the critic rewrites once and the revised $y$ becomes the final answer.
 
 \section{Validation Experiments}
 \label{sec:results}
