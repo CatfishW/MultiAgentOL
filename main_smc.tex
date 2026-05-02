@@ -128,7 +128,7 @@ b(x)=\mathrm{concat}(q,c,r,h),
 \end{equation}
 where $\mathrm{concat}(\cdot)$ means that the question, inline context, rubric text, and dialogue turns are joined into one normalized string. Images and metadata are not converted into text; they only affect field bonuses described below.
 
-The router uses five cue families $j\in\{\mathrm{ev},\mathrm{co},\mathrm{ru},\mathrm{pl},\mathrm{tu}\}$ for evidence, coordination, rubric, planning, and tutoring. Each family has a keyword set $W_j$. For example, evidence cues include \emph{source}, \emph{document}, \emph{chapter}, and \emph{verification}; tutoring cues include \emph{student}, \emph{hint}, \emph{misconception}, \emph{explain}, and \emph{confused}. The raw cue score is
+The router uses five cue families $j\in\{\mathrm{ev},\mathrm{co},\mathrm{ru},\mathrm{pl},\mathrm{tu}\}$ for evidence, coordination, rubric, planning, and tutoring. These families are defined because each one controls a different downstream decision: evidence cues open retrieval, coordination cues indicate that multiple specialist agents should assemble the brief, rubric cues activate criterion checking, planning cues route to lesson sequencing, and tutoring cues activate learner-state adaptation. Each family has a keyword set $W_j$. Evidence cues include \emph{source}, \emph{document}, \emph{chapter}, and \emph{verification}; rubric cues include \emph{score}, \emph{criteria}, and \emph{comment}; planning cues include \emph{lesson}, \emph{sequence}, and \emph{exercise plan}; tutoring cues include \emph{student}, \emph{hint}, \emph{misconception}, \emph{explain}, and \emph{confused}. The raw cue score is
 \begin{equation}
 a_j(x)=\frac{1}{|W_j|}\sum_{w\in W_j}{\bf 1}[w\in b(x)],
 \end{equation}
