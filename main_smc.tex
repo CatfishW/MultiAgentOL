@@ -96,35 +96,39 @@ B=(K,Q,L,N),
 where $K$ is the maximum number of planner retrieval queries, $Q$ is the maximum number of evidence chunks/tool calls, $L$ is the character budget for packed evidence, and $N$ is the response-token cap.
 
 \begin{table}[t]
-\caption{Pseudocode for \textsc{MARLET}.}
-\label{tab:marlet_pseudocode}
 \centering
 \scriptsize
-\setlength{\tabcolsep}{2pt}
-\renewcommand{\arraystretch}{0.93}
-\begin{tabular}{p{0.96\columnwidth}}
+\setlength{\tabcolsep}{0pt}
+\renewcommand{\arraystretch}{0.96}
+\begin{tabular}{@{}r@{\hspace{0.45em}}p{0.89\columnwidth}@{}}
 \toprule
-\texttt{def MARLET(x, B, index, thresholds):} \\
+\multicolumn{2}{@{}l@{}}{\textbf{Algorithm 1: \textsc{MARLET} Inference Process}}\\
 \midrule
-\quad \texttt{q, o, c, h, r, v, m = x} \\
-\quad \texttt{scores = cue\_scores(concat(q, c, r, h))} \\
-\quad \texttt{R, switches = route(scores, r, v, thresholds)} \\
-\quad \texttt{z0 = Context(x=x, regime=R, budget=B)} \\
-\quad \texttt{tasks = \{planner(z0), diagnoser(z0)\}} \\
-\quad \texttt{if switches.rubric: tasks.add(rubric\_agent(z0))} \\
-\quad \texttt{p, ell, u = run\_parallel(tasks)} \\
-\quad \texttt{P = p.queries[:B.K]; z1 = merge(z0, p, ell, u)} \\
-\quad \texttt{D = []} \\
-\quad \texttt{if switches.retrieve:} \\
-\quad\quad \texttt{D = pack(rerank(dedup(search(index, P)), q), B.Q, B.L)} \\
-\quad \texttt{y0 = tutor(prompt(q, o, h, p, ell, u, D, c))} \\
-\quad \texttt{if not D and scores.evidence >= thresholds.fallback:} \\
-\quad\quad \texttt{D = pack(rerank(search(index, [q]), q), B.Q, B.L)} \\
-\quad\quad \texttt{y0 = tutor(prompt(q, o, h, p, ell, u, D, c))} \\
-\quad \texttt{y = critic(y0, z1, D) if switches.critic else y0} \\
-\quad \texttt{return y, \{route=R, evidence=D, citations=ids(D)\}} \\
+\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Require:} entry $x=(q,o,c,h,r,v,m)$, budget $B=(K,Q,L,N)$, index $\mathcal{I}$, thresholds $\tau$.}\\
+\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Return:} answer $y$ and audit fields $(R,D,\mathrm{citations},\mathrm{cost})$.}\\
+\midrule
+1: & $b\leftarrow \mathrm{concat}(q,c,r,h)$; $s\leftarrow\mathrm{CueScores}(b)$\\
+2: & $(R,G,\mathrm{sw})\leftarrow \mathrm{Route}(s,r,v,\tau)$\\
+3: & $z_0\leftarrow \mathrm{Context}(x,R,G,B)$\\
+4: & \textbf{parallel do}\\
+5: & \quad $p=(\mathrm{strategy},P)\leftarrow\mathrm{Planner}(z_0)$\\
+6: & \quad $\ell\leftarrow\mathrm{Diagnoser}(z_0)$\\
+7: & \quad \textbf{if} $\mathrm{sw.rubric}$ \textbf{then} $u\leftarrow\mathrm{Rubric}(z_0)$ \textbf{else} $u\leftarrow\mathrm{DefaultCriteria}()$\\
+8: & \textbf{end parallel}\\
+9: & $P\leftarrow\mathrm{cap}(P,K)$; $z_1\leftarrow(z_0,p,\ell,u)$; $D\leftarrow\emptyset$\\
+10: & \textbf{if} $G=1$ \textbf{then}\\
+11: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},P)),q),Q,L)$\\
+12: & \textbf{end if}\\
+13: & $y_0\leftarrow A_{\rm tutor}(\mathrm{Prompt}(q,o,h,p,\ell,u,D,c))$\\
+14: & \textbf{if} $D=\emptyset$ \textbf{and} $s_{\rm ev}\ge\tau_{\rm fb}$ \textbf{then}\\
+15: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Search}(\mathcal{I},[q]),q),Q,L)$\\
+16: & \quad $y_0\leftarrow A_{\rm tutor}(\mathrm{Prompt}(q,o,h,p,\ell,u,D,c))$\\
+17: & \textbf{end if}\\
+18: & \textbf{if} $\mathrm{sw.critic}$ \textbf{then} $y\leftarrow A_{\rm crit}(y_0,z_1,D)$ \textbf{else} $y\leftarrow y_0$\\
+19: & \textbf{return} $y,(R,D,\mathrm{ids}(D),\mathrm{cost})$\\
 \bottomrule
 \end{tabular}
+\label{tab:marlet_pseudocode}
 \end{table}
 
 \subsection{Supervisor Routing}
