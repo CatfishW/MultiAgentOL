@@ -1,0 +1,20 @@
+endpoints:
+  llm:
+    base_url: https://llm.agaii.org/v1
+    capability: text
+    # Set to true when the endpoint can accept image inputs even if capability is text.
+    supports_vision: true
+    api_key_env: AGAII_LLM_API_KEY
+    default_model: null
+    timeout_s: 120
+    # OpenAI-compatible passthrough payload merged into every chat request.
+    # For Qwen reasoning models, this can be used to control thinking budget.
+    chat_extra:
+      extra_body:
+        thinking_budget: 2048
+  mllm:
+    base_url: https://llm.agaii.org/v1
+    capability: multimodal
+    api_key_env: AGAII_MLLM_API_KEY
+    default_model: null
+    timeout_s: 120

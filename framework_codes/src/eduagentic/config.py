@@ -80,9 +80,11 @@ class PipelineConfig:
     enable_rubric_agent: bool = True
     enable_diagnoser: bool = True
     enable_planner_llm: bool = True
+    enable_tool_calls: bool = True
     use_fast_rule_planner: bool = False
     parallel_specialists: bool = True
     cache_dir: str = ".cache/eduagentic/models"
+    enable_model_cache: bool = True
     # Ablation knobs. All default False => current production behavior.
     # Reviewer-critical ablations (see docs/EXPERIMENTS.md).
     hybrid_force_retrieval: bool = False

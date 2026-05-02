@@ -22,6 +22,11 @@ are redacted; framework parameters, budgets, and architecture switches are kept.
 - LLM-backed specialist agents used to build the response brief:
   `src/eduagentic/agents/planner.py`, `diagnoser.py`, `rubric.py`, `retriever.py`,
   `tutor.py`, `critic.py`, and `base.py`
+- Bounded local tool calling and model-response cache support:
+  `src/eduagentic/tools/context_tools.py`, `src/eduagentic/llm/openai_compat.py`,
+  `src/eduagentic/llm/registry.py`, `src/eduagentic/utils/cache.py`
+- Automatic quality and resource metrics:
+  `src/eduagentic/evaluation/metrics.py`, `src/eduagentic/evaluation/evaluator.py`
 - Prompt assembly logic:
   `src/eduagentic/prompts/templates.py`, `src/eduagentic/agents/tutor.py`
 - Retrieval, reranking, and context packing:
@@ -31,7 +36,8 @@ are redacted; framework parameters, budgets, and architecture switches are kept.
 - Tokenization and text utilities used by routing/retrieval:
   `src/eduagentic/utils/text.py`
 - Framework parameters and experiment budgets:
-  `configs/system.example.yaml`, `configs/system.experiments.qwen4b.yaml`,
+  `configs/system.example.yaml`, `configs/system.experiments.yaml`,
+  `configs/system.experiments.qwen4b.yaml`,
   `configs/system.experiments.qwen27b.yaml`
 
 `MANIFEST.txt` lists every copied source/config file.
