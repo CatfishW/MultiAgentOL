@@ -89,7 +89,7 @@ x=(q,o,c,h,r,v,m).
 \end{equation}
 Here, $q$ is the student question or task prompt; $o$ is an optional answer-option list; $c$ is optional inline context such as a chapter excerpt; $h$ is recent dialogue; $r$ is an optional rubric or answer-criteria list; $v$ is an optional image list; and $m$ stores metadata used for logging or formatting. Empty fields are allowed, so the same representation covers factual questions, grading requests, feedback requests, and planning requests.
 
-The only student-facing output is the final tutor answer $y$. The route, retrieved evidence bundle $D$, citation identifiers, and cost logs are audit fields. They do not form separate answers. Instead, planner output, learner-state summary, rubric summary, and retrieved chunks are assembled as prompt blocks before the LLM tutor generates $y$. The shared budget is
+The only student-facing output is the final tutor answer $y$. \textsc{MARLET} also stores internal records: a route record, which names the selected tutoring mode and which modules run; an evidence bundle $D$, which contains packed retrieved chunks; citation identifiers, which link chunks in $D$ to their sources; and a cost log for token, latency, and call counts. These records are not answers. Planner output, learner-state summary, rubric summary, and $D$ are assembled as prompt blocks before the LLM tutor generates $y$. The shared budget is
 \[
 B=(K,Q,L,N),
 \]
