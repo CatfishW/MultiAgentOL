@@ -124,15 +124,11 @@ b(x)=\mathrm{concat}(q,c,r,h),
 \end{equation}
 where $\mathrm{concat}(\cdot)$ means that the question, inline context, rubric text, and dialogue turns are joined into one normalized string. Images remain available to the tutor, but they are not converted into the textual routing score.
 
-The router uses five cue families $j\in\{\mathrm{ev},\mathrm{co},\mathrm{ru},\mathrm{pl},\mathrm{tu}\}$ for evidence, coordination, rubric, planning, and tutoring. Each family controls a different downstream decision: evidence cues open retrieval, coordination cues indicate that several constraints must be merged, rubric cues activate criterion checking, planning cues route to lesson sequencing, and tutoring cues activate learner-state adaptation. Each family has a keyword set $W_j$. Evidence cues include \emph{source}, \emph{document}, \emph{chapter}, and \emph{verification}; rubric cues include \emph{score}, \emph{criteria}, and \emph{comment}; planning cues include \emph{lesson}, \emph{sequence}, and \emph{exercise plan}; tutoring cues include \emph{student}, \emph{hint}, \emph{misconception}, \emph{explain}, and \emph{confused}. Let $M_j(x)$ be the number of cues from $W_j$ that appear in $b(x)$. The raw cue score is
+The router uses five cue families $j\in\{\mathrm{ev},\mathrm{co},\mathrm{ru},\mathrm{pl},\mathrm{tu}\}$ for evidence, coordination, rubric, planning, and tutoring. Each family controls a different downstream decision: evidence cues open retrieval, coordination cues indicate that several constraints must be merged, rubric cues activate criterion checking, planning cues route to lesson sequencing, and tutoring cues activate learner-state adaptation. Each family has a keyword set $W_j$. Evidence cues include \emph{source}, \emph{document}, \emph{chapter}, and \emph{verification}; rubric cues include \emph{score}, \emph{criteria}, and \emph{comment}; planning cues include \emph{lesson}, \emph{sequence}, and \emph{exercise plan}; tutoring cues include \emph{student}, \emph{hint}, \emph{misconception}, \emph{explain}, and \emph{confused}. Let $M_j(x)$ be the number of cues from $W_j$ that appear in $b(x)$. The cue score is
 \begin{equation}
-a_j(x)=\frac{M_j(x)}{|W_j|},
+s_j(x)=\frac{M_j(x)}{|W_j|},
 \end{equation}
-where $|W_j|$ is the number of cues in family $j$. The supervisor uses this normalized cue score directly:
-\begin{equation}
-s_j(x)=a_j(x).
-\end{equation}
-Here $s_j(x)$ is the final control score for family $j$. The thresholds are fixed router hyperparameters, not probabilities or learned weights. We choose them in cue-count units so $\tau_{\rm mid}$ requires a repeated cue pattern rather than one accidental word, $\tau_{\rm plan}$ is stricter because a false planning route changes the whole answer structure, and $\tau_{\rm fb}$ is stricter because fallback retrieval costs an extra pass.
+where $|W_j|$ is the number of cues in family $j$, so $s_j(x)$ is the fraction of that cue family observed in the routing blob. The thresholds are fixed router hyperparameters, not probabilities or learned weights. We choose them in cue-count units so $\tau_{\rm mid}$ requires a repeated cue pattern rather than one accidental word, $\tau_{\rm plan}$ is stricter because a false planning route changes the whole answer structure, and $\tau_{\rm fb}$ is stricter because fallback retrieval costs an extra pass.
 
 The pedagogical regime $R(x)$ is selected in a fixed order:
 \begin{equation}
