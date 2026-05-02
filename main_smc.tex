@@ -147,7 +147,7 @@ R(x)=
 \end{equation}
 The priority order is a design choice about prompt constraints. LP is checked first because sequence-level planning reshapes the whole response; RF is next because scoring criteria are hard constraints; AT follows because learner state changes the explanation style but should not override explicit criteria; EG is the fallback so uncertain cases remain grounded rather than answered from memory.
 
-The retrieval gate implements the same selective-retrieval intuition studied in adaptive RAG: evidence is requested when the sample appears to need external grounding rather than being forced for every input~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}. The gate is
+The retrieval gate implements the similar selective-retrieval intuition studied in adaptive RAG: evidence is requested when the sample appears to need external grounding rather than being forced for every input~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}. The gate is
 \begin{equation}
 G(x)=
 \begin{cases}
@@ -174,7 +174,7 @@ where $D_0$ is the evidence bundle from the first retrieval attempt. If $G_{\rm 
 
 \subsection{Parallel Agent Brief Construction}
 
-MARLET uses role decomposition for planning, diagnosis, and rubric analysis, following tool-using and multi-agent LLM systems~\cite{yao2023react,wu2024autogen}. \emph{Planning} chooses the local answer strategy and search intents for the current sample; it is not a full curriculum planner. \emph{Coordination} means typed shared-state assembly: each specialist reads the same input state, writes its own fields, and a coordinator merges them before retrieval and generation. The initial context is
+MARLET uses role decomposition for planning, diagnosis, and rubric analysis, inspired from tool-using and multi-agent LLM systems~\cite{yao2023react,wu2024autogen}. \emph{Planning} chooses the local answer strategy and search intents for the current sample; it is not a full curriculum planner. \emph{Coordination} means typed shared-state assembly: each specialist reads the same input state, writes its own fields, and a coordinator merges them before retrieval and generation. The initial context is
 \begin{equation}
 z_0=(x,R(x),G(x),B).
 \end{equation}
