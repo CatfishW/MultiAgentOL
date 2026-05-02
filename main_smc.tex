@@ -79,11 +79,25 @@ Recent educational work shows that tutoring quality requires more than answer ac
 \section{Methodology}
 \label{sec:methodology}
 
-\textsc{MARLET} is an input-to-output tutoring pipeline. The input is first standardized as a benchmark example containing an identifier, dataset name, question or prompt, optional choices, optional chapter or inline context, dialogue turns, rubric items, images, metadata, and reference documents. The output is a tutor response plus trace information: selected route, retrieved chunks, agent outputs, citations, latency, token use, and call count. The central design choice is that retrieval is not the first step. A supervisory controller first decides what kind of tutoring problem the sample represents and then builds a compact tutoring brief before the LLM-driven tutor writes.
+\textsc{MARLET} is a tutoring framework that turns one educational request into a grounded tutor response. Its design follows three principles. First, routing is explicit: the system decides whether the request needs evidence, rubric feedback, adaptive tutoring, or planning before retrieval is attempted. Second, agents exchange structured state rather than free-form conversation. Third, retrieval is conditional and scoped by the tutoring brief, not by the surface query alone. Selective retrieval is motivated by adaptive RAG methods~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}, role decomposition by ReAct and AutoGen~\cite{yao2023react,wu2024autogen}, learner-state modeling by tutoring studies~\cite{liu2026agenttutor,borchers2025adaptivity}, and compact evidence packing by MMR~\cite{carbonell1998mmr}.
 
-The module boundaries come from the two educational data sources. TutorEval samples pair science questions with chapters and expert teaching points. For example, ``Which is the fastest mode of heat transfer?'' requires the answer \emph{radiation}, the reason that no medium is required, and consistency with chapter evidence. EduBench samples expose broader tutoring needs. One personalized-learning row describes a grade-five Chinese learner who likes folklore and art but struggles with pronunciation and complex texts; one grading row asks whether the Terracotta Army was built during the Han Dynasty and requires a score, scoring details, and personalized feedback. These cases require different grounding: chapter evidence for TutorEval, visible learner state for personalized EduBench rows, and rubric constraints for grading rows. \textsc{MARLET} therefore routes by grounding need rather than treating every prompt as a single query.
+\subsection{Input, Output, and Budget}
 
-The module design follows prior work without copying its problem setting. Adaptive RAG motivates deciding whether retrieval is useful~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}; ReAct and AutoGen motivate explicit planning and role decomposition~\cite{yao2023react,wu2024autogen}; tutoring studies motivate learner-state diagnosis~\cite{liu2026agenttutor,borchers2025adaptivity}; tutoring benchmarks motivate rubric-style answer criteria~\cite{macina2025mathtutorbench,srinivasa2025tutorbench}; and MMR motivates compact relevance-diversity context packing~\cite{carbonell1998mmr}. These ideas are organized into one tutoring-specific framework whose purpose is to construct the right grounding context before the final tutor response.
+For one sample, \textsc{MARLET} first standardizes all visible fields into
+\begin{equation}
+x=(q,o,c,h,r,v,m).
+\end{equation}
+Here, $q$ is the student question or task prompt; $o$ is an optional answer-option list; $c$ is optional inline context such as a chapter excerpt; $h$ is the recent dialogue history; $r$ is an optional rubric or answer-criteria list; $v$ is an optional image list; and $m$ stores metadata used for logging or formatting. Empty fields are allowed, so the same representation covers factual questions, grading requests, feedback requests, and planning requests.
+
+The pipeline returns
+\begin{equation}
+\mathrm{out}(x)=(y,\mathrm{route},D,\mathrm{cit},\mathrm{log}),
+\end{equation}
+where $y$ is the final tutor answer, $\mathrm{route}$ records the selected pedagogical regime and module switches, $D$ is the final evidence bundle, $\mathrm{cit}$ contains citation identifiers from retrieved chunks, and $\mathrm{log}$ stores trace and cost information. The budget is
+\[
+B=(K,Q,L,N)=(3,4,6000,900),
+\]
+where $K$ is the maximum number of planner retrieval queries, $Q$ is the maximum number of evidence chunks/tool calls, $L$ is the character budget for packed evidence, and $N$ is the response-token cap.
 
 \begin{table}[t]
 \caption{Framework components and responsibilities.}
@@ -106,13 +120,45 @@ Tutor/Critic & Generates the final response and checks evidence markers, rubric 
 \end{tabular}
 \end{table}
 
-\subsection{From Input to Route}
+\subsection{Supervisor Routing}
 
-The supervisor is a transparent heuristic router. It first builds a routing blob by joining the question, optional context text, rubric text, and recent dialogue. In the EduBench Terracotta Army grading row, the blob contains the true/false question, the student's answer, and the required fields ``Score,'' ``Scoring Details,'' and ``Personalized Feedback.'' The router scans this blob with five cue lists. Evidence cues include terms such as \emph{source}, \emph{document}, \emph{chapter}, and \emph{verification}. Coordination cues include \emph{student}, \emph{misconception}, \emph{hint}, \emph{feedback}, and \emph{scaffold}. Rubric cues include \emph{score}, \emph{criteria}, and \emph{comment}. Planning cues include \emph{lesson}, \emph{sequence}, and \emph{exercise plan}. Tutoring cues include \emph{explain}, \emph{teach}, \emph{confused}, and \emph{hint}.
+The supervisor begins with a routing blob:
+\begin{equation}
+b(x)=\mathrm{concat}(q,c,r,h),
+\end{equation}
+where $\mathrm{concat}(\cdot)$ means that the question, inline context, rubric text, and dialogue turns are joined into one normalized string. Images and metadata are not converted into text; they only affect field bonuses described below.
 
-Each cue family produces a control score between zero and one. A score rises when cue words appear and when visible fields indicate that the family matters. Context text adds evidence weight; images add evidence and coordination weight; an explicit rubric adds rubric weight; and longer dialogue adds tutoring weight. In the two evaluated datasets, this means TutorEval chapter fields tend to raise evidence needs, while EduBench learner profiles, student answers, and feedback fields tend to raise tutoring, coordination, and rubric needs. These values are not probabilities; they are readable switches for deciding which modules to activate.
+The router uses five cue families $j\in\{\mathrm{ev},\mathrm{co},\mathrm{ru},\mathrm{pl},\mathrm{tu}\}$ for evidence, coordination, rubric, planning, and tutoring. Each family has a keyword set $W_j$. For example, evidence cues include \emph{source}, \emph{document}, \emph{chapter}, and \emph{verification}; tutoring cues include \emph{student}, \emph{hint}, \emph{misconception}, \emph{explain}, and \emph{confused}. The raw cue score is
+\begin{equation}
+a_j(x)=\frac{1}{|W_j|}\sum_{w\in W_j}{\bf 1}[w\in b(x)],
+\end{equation}
+where ${\bf 1}[w\in b(x)]$ is $1$ when cue word or phrase $w$ appears in the blob and $0$ otherwise. This score is then adjusted by visible fields:
+\begin{equation}
+s_j(x)=\min\{1,\;a_j(x)+f_j(x)\}.
+\end{equation}
+Here $s_j(x)$ is the final control score for family $j$, and $f_j(x)$ is a small field bonus. Inline context raises evidence by $0.08$; images raise evidence by $0.05$ and coordination by $0.03$; an explicit rubric raises rubric by $0.20$; and dialogue raises tutoring by $\min(|h|/6,0.50)$, where $|h|$ is the number of dialogue turns. The scores are not probabilities. They are transparent switches that make the router's decision inspectable.
 
-The route contains four decisions. First, the supervisor assigns a regime from the visible sample signals: lesson planning when planning cues dominate, rubric feedback when rubric cues dominate, adaptive tutoring when tutoring cues are sufficiently strong, and evidence-grounded reasoning when no tutoring-specific need is stronger. Second, it chooses whether the sample should follow the multi-agent retrieval path by comparing evidence and coordination needs. Third, it opens the retrieval gate when the evidence score reaches the configured hybrid gate of $0.35$ or when the regime is evidence-grounded. Fourth, it enables the critic when retrieval, rubric constraints, adaptive tutoring, or planning make revision useful. If the first pass retrieves no chunks but the evidence score reaches the fallback gate of $0.45$, one raw-question fallback retrieval pass is allowed.
+The pedagogical regime $R(x)$ is selected in a fixed order:
+\begin{equation}
+R(x)=
+\begin{cases}
+\mathrm{LP}, & s_{\rm pl}\ge \max(s_{\rm ru},s_{\rm tu},0.42),\\
+\mathrm{RF}, & s_{\rm ru}\ge \max(s_{\rm tu},0.35),\\
+\mathrm{AT}, & s_{\rm tu}\ge 0.35,\\
+\mathrm{EG}, & \mathrm{otherwise}.
+\end{cases}
+\end{equation}
+LP, RF, AT, and EG mean lesson planning, rubric feedback, adaptive tutoring, and evidence-grounded reasoning. Planning is checked first because lesson sequencing should not be reduced to short feedback; rubric is checked before tutoring because score and criterion fields impose hard output constraints; tutoring is checked next when student-state cues are strong; otherwise the sample is handled as evidence-grounded reasoning.
+
+The retrieval gate is
+\begin{equation}
+G(x)={\bf 1}[s_{\rm ev}(x)\ge 0.35\;\mathrm{or}\;R(x)=\mathrm{EG}].
+\end{equation}
+Thus retrieval runs only when the evidence score is at least $0.35$ or when the selected regime is evidence-grounded. A fallback gate is kept for missed evidence cases:
+\begin{equation}
+G_{\rm fb}(x)={\bf 1}[|D_0|=0\;\mathrm{and}\;s_{\rm ev}(x)\ge 0.45],
+\end{equation}
+where $D_0$ is the evidence bundle from the first retrieval attempt. If $G_{\rm fb}(x)=1$, the system performs one additional retrieval pass using the raw question.
 
 \begin{figure*}[t]
 \centering
@@ -121,26 +167,69 @@ The route contains four decisions. First, the supervisor assigns a regime from t
 \label{fig:framework}
 \end{figure*}
 
-\subsection{Agent Communication and Context Construction}
+\subsection{Parallel Agent Brief Construction}
 
-Agents do not free-chat with each other. They communicate through a shared \texttt{AgentContext} and structured \texttt{AgentResult} objects. The first context contains the standardized example, the route decision, and the budget policy: at most three retrieval queries, a $6000$-character context budget, a four-tool-call cap, one critic round, and a $900$-token response cap. Planner, diagnoser, and rubric modules then run in parallel when enabled. Each reads the same base context and returns a typed result; the pipeline merges their artifacts into a second context containing \texttt{plan\_text}, \texttt{student\_state}, \texttt{search\_queries}, and \texttt{rubric\_summary}.
+Agents do not send open-ended messages to each other. They read and write a shared context. The initial context is
+\begin{equation}
+z_0=(x,R(x),G(x),B).
+\end{equation}
+From $z_0$, the planner, diagnoser, and rubric module run in parallel when their switches are active:
+\begin{equation}
+(p,\ell,u)=
+\big(A_{\rm plan}(z_0),A_{\rm diag}(z_0),A_{\rm rub}(z_0)\big).
+\end{equation}
+Here $p$ is the planner output, consisting of a short operating plan and up to $K=3$ retrieval queries; $\ell$ is the visible learner-state summary; and $u$ is the rubric summary or default answer-quality checklist. Parallel execution means these agents all read $z_0$ and return typed outputs independently; the tutor never has to infer the plan, learner state, and rubric from one overloaded query string.
 
-The planner writes a short operating plan based on the regime and emits up to three deduplicated retrieval queries. The query list starts with the raw question, adds a key-term query from longer question tokens, and may add a dataset- or rubric-aware query when context or rubric fields exist. If retrieval is required, the plan explicitly reminds the system to retrieve only the parts that need grounding. The diagnoser infers only visible learning state from the current question and dialogue. It defaults to an intermediate level, switches to beginner or advanced when cue phrases indicate that level, records goals such as solving the current problem or understanding a concept, captures possible misconceptions from dialogue, and detects preferred styles such as step-by-step or concise explanations. It is not a persistent student model. The rubric module either summarizes explicit rubric items, as in EduBench grading rows, or falls back to correctness, clarity, scaffolding, and actionable feedback.
+The planner starts its query set with $q$, adds a compact key-term query from longer tokens in $q$, adds a context-aware query when $c$ is present, and adds a rubric-aware query when $r$ is present. Duplicate queries are removed and the list is capped by $K$. The diagnoser infers only visible state from $q$ and $h$: level defaults to intermediate, beginner or advanced cues can override it, dialogue cues can add misconceptions, and style cues can request step-by-step, concise, or analogy-based explanation. This is not a persistent student profile. The rubric module preserves explicit criteria when available; otherwise it supplies default criteria of correctness, clarity, scaffolding, and actionable feedback. The merged tutoring brief is
+\begin{equation}
+z_1=z_0\cup\{p,\ell,u\}.
+\end{equation}
 
-\subsection{Retrieval, Tutor, and Critic}
+\subsection{Conditional Retrieval and Evidence Packing}
 
-\textsc{MARLET} contains retrieval, but it does not use a traditional dense vector database as its top-level controller. The local retriever is a lightweight hybrid index over text chunks. It combines word TF--IDF for exact topical matches, character $3$--$5$ gram TF--IDF for spelling and short-phrase robustness, and a truncated-SVD latent space for semantic smoothing. Title overlap gives a small boost, and citation-seeking queries slightly favor chunks marked as references, lectures, or documents. When the planner emits multiple queries, retrieved candidates are merged and deduplicated by chunk identifier.
+\textsc{MARLET} contains retrieval, but retrieval is not the top-level controller and does not require a traditional dense vector database. When $G(x)=1$, each planner query $q_i$ searches a local hybrid text index. For a query $q_i$ and candidate chunk $d$, the base retrieval score is
+\begin{equation}
+\mathrm{base}(q_i,d)=.58\,\mathrm{lex}+.17\,\mathrm{char}+.25\,\mathrm{svd}+\beta .
+\end{equation}
+Here $\mathrm{lex}$ is word TF--IDF similarity, $\mathrm{char}$ is character $3$--$5$ gram TF--IDF similarity, $\mathrm{svd}$ is similarity in a truncated-SVD latent space, and $\beta$ is a small title/source boost. Candidates from all planner queries are merged, and duplicate chunks keep their highest score.
 
-The reranker prefers chunks with strong base retrieval scores, token overlap with the question, title overlap, exact phrase matches, numeric overlap, and moderate brevity. Context packing then selects up to four chunks under the $6000$-character budget. The packer rewards relevance but penalizes chunks that repeat already selected material, so the final evidence bundle is compact rather than simply long. Retrieved chunks are rendered with document markers and later become citations. The learner summary does not directly change reranker weights; personalization reaches retrieval mainly through planner query construction and the decision of whether retrieval should happen.
+The reranker then scores each candidate against the original question:
+\begin{equation}
+\begin{aligned}
+\mathrm{rank}(q,d)=&.55\,\mathrm{base}+.20o_{\rm tok}+.10o_{\rm title}\\
+&+.06m_{\rm phr}+.05o_{\rm num}+.04b_{\rm len}.
+\end{aligned}
+\end{equation}
+In this formula, $o_{\rm tok}$ is token overlap with $q$, $o_{\rm title}$ is title-token overlap, $m_{\rm phr}$ is an exact phrase-match flag, $o_{\rm num}$ is numeric overlap, and $b_{\rm len}$ rewards moderate chunk length. The learner summary $\ell$ does not directly change these weights; personalization affects retrieval through the route and planner queries.
 
-The tutor is the LLM-driven answer writer. Its prompt contains the dataset name, question, choices if present, recent dialogue, inferred student-state summary, operating plan, rubric summary, and either retrieved evidence or inline benchmark context. It receives fixed answer requirements: be correct, pedagogically useful, concise but not terse, include a next step when appropriate, and cite evidence with \texttt{[doc\_id]} markers when evidence is provided. EduBench consensus rows require JSON with score, scoring details, and personalized feedback. TutorEval rows use instructional prose and are judged against expert key points. After the tutor drafts an answer, the critic checks for missing evidence markers, uncovered rubric items, and answers that are too long for a beginner-facing context. If issues are found and the LLM client is available, the critic rewrites once; otherwise it passes through the draft and records the issues.
+Evidence packing selects a compact nonredundant set. Let $U$ be the reranked candidate pool and $S$ be the set already selected. The next chunk is
+\begin{equation}
+d^\star=\arg\max_{d\in U\setminus S}
+.68\,\mathrm{rank}(q,d)-.32\,\mathrm{red}(d,S),
+\end{equation}
+where $\mathrm{red}(d,S)$ is the maximum sentence overlap between $d$ and any chunk already in $S$. Selection stops at $Q=4$ chunks or the $L=6000$ character limit. The resulting evidence bundle is $D$.
 
-\subsection{Evaluation Protocol}
+\subsection{Tutor Generation and Critic Revision}
 
-Evaluation is dataset-aware, and all reported quality scores are automatic proxies rather than official benchmark or human grades. Higher is better for quality metrics; lower is better for latency, tokens, and calls. Following RAG evaluation work~\cite{ru2024ragchecker}, we separate answer overlap, rubric fulfillment, grounding, and resource cost. Token-F1 rewards overlap with the reference while balancing extra generated tokens against missed reference tokens. Rubric coverage checks whether each benchmark rubric item is actually expressed; near-verbatim coverage receives credit, and partial token overlap must include content-bearing words so that generic feedback is not over-rewarded. Latency is wall-clock time per sample; total tokens are prompt plus completion tokens; backbone calls count logged LLM requests.
+The final tutor context is
+\begin{equation}
+z_2=z_1\cup\{D\}.
+\end{equation}
+The tutor is the LLM-driven answer writer:
+\begin{equation}
+y_0=A_{\rm tutor}(z_2).
+\end{equation}
+Its prompt contains $q$, optional answer options $o$, recent dialogue $h$, learner state $\ell$, plan $p$, rubric summary $u$, and either retrieved evidence $D$ or inline context $c$. The tutor is instructed to be correct, pedagogically useful, concise but not terse, include a next step when appropriate, and cite retrieved evidence with document markers.
 
-For EduBench, EB12D averages 12 normalized checks in three groups: scenario adaptation, factual or reasoning behavior, and pedagogical application. These checks cover output-format compliance, supportive tone, relevance, use of scenario details, score agreement, domain and rubric grounding, reasoning quality, correction cues, clarity, motivation, personalization, and higher-order prompting. EduAlign is narrower: it only measures how close the extracted numeric score is to the benchmark's consensus score. Thus EduAlign can decrease even when explanatory feedback or rubric coverage improves. For TutorEval, tutor-hit measures expert teaching-point coverage. A key point receives full credit when it is explicitly stated or strongly covered, partial credit when the answer overlaps with enough of the key point, and no credit when the idea is absent. Off-profile metrics remain zeros in raw logs but are omitted from paper tables. The workload audit is a fixed weighted cost summary over tokens, retrieval queries, retrieved chunks, materialized agent outputs, and trace events; it is for efficiency inspection only and is not a training objective.
-
+The critic performs one bounded revision pass:
+\begin{equation}
+y=
+\begin{cases}
+A_{\rm crit}(y_0,z_2), & I(y_0,z_2)\neq\emptyset,\\
+y_0, & I(y_0,z_2)=\emptyset .
+\end{cases}
+\end{equation}
+Here $I(y_0,z_2)$ is the issue list found by the critic. Issues include missing citation markers when $D$ is nonempty, uncovered rubric items from $r$, and answers that are too long for a beginner-facing state. If no issue is found, $y_0$ is returned unchanged; otherwise the critic rewrites once and the revised $y$ becomes the final answer.
 
 \section{Validation Experiments}
 \label{sec:results}
@@ -148,6 +237,10 @@ For EduBench, EB12D averages 12 normalized checks in three groups: scenario adap
 We validate the framework on two public educational benchmarks. TutorEval~\cite{chevalier2024sciencetutors} contains 834 expert-written science tutoring questions paired with long STEM chapters and teaching key points, so responses must explain, disambiguate, and stay chapter-grounded. EduBench~\cite{xu2025edubench} covers nine educational scenarios, including question answering, error correction, personalized support, emotional support, grading, teaching-material generation, and personalized content creation. Its rows contain prompts, scenario metadata, and reference model predictions; our adapter converts them into consensus-style supervision through score statistics and rubric terms.
 
 The primary validation compares classical RAG with \textsc{MARLET} under matched \textsc{Qwen3.5-4B} infrastructure, reasoning budget 512, temperature 0.15, response cap 900, shared corpus, shared reranker, and fixed retrieval hyperparameters; a smaller \textsc{Qwen3.5-27B-FP8} replication checks backbone sensitivity. Classical RAG runs retrieval first from the raw standardized prompt. If the prompt already contains a learner profile, student answer, dialogue, or rubric text, that visible information remains available to the baseline; it is not removed. What the baseline lacks is \textsc{MARLET}'s explicit planner query construction, diagnosis, rubric brief, route decision, retrieval gate, and fallback logic. We report quality and cost together because \textsc{MARLET} changes context construction while keeping the infrastructure shared.
+
+Evaluation is dataset-aware, and all reported quality scores are automatic proxies rather than official benchmark or human grades. Higher is better for quality metrics; lower is better for latency, tokens, and calls. Following RAG evaluation work~\cite{ru2024ragchecker}, we separate answer overlap, rubric fulfillment, grounding, and resource cost. Token-F1 rewards overlap with the reference while balancing extra generated tokens against missed reference tokens. Rubric coverage checks whether each benchmark rubric item is actually expressed; near-verbatim coverage receives credit, and partial token overlap must include content-bearing words so that generic feedback is not over-rewarded. Latency is wall-clock time per sample; total tokens are prompt plus completion tokens; backbone calls count logged LLM requests.
+
+For EduBench, EB12D averages 12 normalized checks in three groups: scenario adaptation, factual or reasoning behavior, and pedagogical application. These checks cover output-format compliance, supportive tone, relevance, use of scenario details, score agreement, domain and rubric grounding, reasoning quality, correction cues, clarity, motivation, personalization, and higher-order prompting. EduAlign is narrower: it only measures how close the extracted numeric score is to the benchmark's consensus score. Thus EduAlign can decrease even when explanatory feedback or rubric coverage improves. For TutorEval, tutor-hit measures expert teaching-point coverage. A key point receives full credit when it is explicitly stated or strongly covered, partial credit when the answer overlaps with enough of the key point, and no credit when the idea is absent. Off-profile metrics remain zeros in raw logs but are omitted from paper tables. The workload audit is a fixed weighted cost summary over tokens, retrieval queries, retrieved chunks, materialized agent outputs, and trace events; it is for efficiency inspection only and is not a training objective.
 
 \subsection{Framework Validation}
 
