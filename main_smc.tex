@@ -177,7 +177,7 @@ where $D_0$ is the evidence bundle from the first retrieval attempt.
 
 \subsection{Parallel Agent Brief Construction}
 
-MARLET uses role decomposition for planning, diagnosis, and rubric analysis, inspired by tool-using and multi-agent LLM systems~\cite{yao2023react,wu2024autogen}. \emph{Planning} chooses the local answer strategy and search intents for the current sample; it is not a full curriculum planner. \emph{Coordination} means typed shared-state assembly: each specialist reads the same input state, writes its own fields, and a coordinator merges them before retrieval and generation. The initial context is
+The router and gates above decide what the final prompt should prioritize; MARLET then constructs the prompt content as a shared tutoring brief. Inspired by tool-using and multi-agent LLM systems~\cite{yao2023react,wu2024autogen}, planning chooses the local answer strategy and search intents, while coordination means typed shared-state assembly: specialists read the same input, write their own fields, and a coordinator merges them before retrieval and generation. The initial context is
 \begin{equation}
 z_0=(x,R(x),G(x),B).
 \end{equation}
