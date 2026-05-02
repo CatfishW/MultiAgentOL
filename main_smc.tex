@@ -169,14 +169,16 @@ where $D_0$ is the evidence bundle from the first retrieval attempt.
 
 \subsection{Parallel Agent Brief Construction}
 
-The router and gates above decide what the final prompt should prioritize; MARLET then constructs the prompt content as a shared response brief. Inspired by tool-using and multi-agent LLM systems~\cite{yao2023react,wu2024autogen}, planning chooses the local answer strategy and search intents, while coordination means typed shared-state assembly: specialists read the same input, write their own fields, and a coordinator merges them before retrieval and generation. The planner, state diagnoser, and criteria module are LLM-backed agents that run in parallel:
+The router and gates above decide what the final prompt should prioritize; MARLET then constructs the prompt content as a shared response brief. Inspired by tool-using and multi-agent LLM systems~\cite{yao2023react,wu2024autogen}, planning chooses the local answer strategy and search intents, while coordination means typed shared-state assembly: specialists read the same input, write their own fields, and a coordinator merges them before retrieval and generation. The planner, state diagnoser, and criteria module are not answer generators. They are LLM-backed context builders that run in parallel:
 \begin{equation}
 (p,\ell,u)=
 \big(A_{\rm plan}(x,R,G),A_{\rm state}(q,h),A_{\rm criteria}(x,R)\big).
 \end{equation}
 Here $p$ is the planner output, consisting of a response strategy and up to $K$ retrieval queries; $\ell$ is the visible user- or task-state summary; and $u$ is the criteria summary or default checklist. In parallel execution, the agents read the same standardized entry and route, then return typed outputs independently, so the final generator need not infer plan, state, and criteria from one overloaded query.
 
-The planner receives $x$, $R$, and $G$ and returns a compact strategy plus up to $K$ retrieval queries. A deterministic key-term fallback is kept only for endpoint failure or malformed JSON. The state diagnoser reflects work showing that generated assistance is sensitive to omitted user-context features~\cite{liu2026agenttutor,borchers2025adaptivity}. It infers only visible state from $q$ and $h$: expertise, goals, apparent confusion or prior attempts, and requested response style. This is not a persistent user profile. The criteria module preserves explicit requirements when available; otherwise it supplies default criteria of correctness, clarity, evidence use when available, and actionable feedback. The merged response brief is the typed record $(R,G,p,\ell,u)$.
+The planner answers ``how should this request be handled before generation?'' It receives $x$, $R$, and $G$, then returns a short operating strategy and retrieval intents. The strategy tells the final generator whether to answer directly, compare criteria, scaffold steps, or reserve space for source evidence. Its query list $P$ is deliberately smaller than the full prompt: it removes conversational noise and preserves the terms most useful for search. A deterministic key-term fallback is kept only for endpoint failure or malformed JSON.
+
+The state diagnoser answers ``what visible task state changes the response?'' Reflecting work showing that generated assistance is sensitive to omitted user-context features~\cite{liu2026agenttutor,borchers2025adaptivity}, it uses only $q$ and $h$ to infer expertise level, goal, apparent confusion or prior attempts, and requested response style. This is not a persistent user profile and does not infer hidden demographics. The criteria module answers ``what constraints must the answer satisfy?'' It preserves explicit requirements from $r$ when available; otherwise it supplies a small default checklist of correctness, clarity, evidence use when available, and actionable next steps. The merged response brief is the typed record $(R,G,p,\ell,u)$.
 
 \subsection{Conditional Retrieval and Evidence Packing}
 
@@ -223,9 +225,9 @@ The primary validation compares three context controllers under matched infrastr
 
 \subsection{Implementation Details}
 
-All controllers use the same deployed Python framework, corpus, hybrid text index, reranker, generator, critic, and metric code; only context assembly differs. The planner, state diagnoser, criteria module, retrieval-query refiner, generator, and critic use the same configured backbone; deterministic fallbacks run only when an LLM response is unavailable or malformed. Runs use \textsc{Qwen3.5-4B} and \textsc{Qwen3.5-27B-FP8}, reasoning budget 512, generation temperature 0.15, specialist JSON temperature 0.0, and response cap $N{=}900$ on \texttt{benwulab-Lambda-Vector} with two NVIDIA RTX 6000 Ada GPUs. We set $K{=}3$, $Q{=}4$, $L{=}6000$, router thresholds $(\tau_{\rm mid},\tau_{\rm plan},\tau_2)=(0.35,0.42,0.45)$, retriever weights $(0.58,0.17,0.25)$, reranker weights $(0.55,0.20,0.10,0.06,0.05,0.04)$, and packing weight $\lambda{=}0.68$.
+All controllers use the same deployed Python framework, corpus, hybrid text index, reranker, generator, critic, and metric code; only context assembly differs. The planner, state diagnoser, criteria module, retrieval-query refiner, generator, and critic use the same configured backbone; deterministic fallbacks run only when an LLM response is unavailable or malformed. LLM endpoints are served through SGLang, whose runtime is designed for structured multi-call LLM programs and efficient KV-cache reuse~\cite{zheng2024sglang}. Runs use \textsc{Qwen3.5-4B} and \textsc{Qwen3.5-27B-FP8}, reasoning budget 512, generation temperature 0.15, specialist JSON temperature 0.0, and response cap $N{=}900$ on \texttt{benwulab-Lambda-Vector} with two NVIDIA RTX 6000 Ada GPUs. We set $K{=}3$, $Q{=}4$, $L{=}6000$, router thresholds $(\tau_{\rm mid},\tau_{\rm plan},\tau_2)=(0.35,0.42,0.45)$, retriever weights $(0.58,0.17,0.25)$, reranker weights $(0.55,0.20,0.10,0.06,0.05,0.04)$, and packing weight $\lambda{=}0.68$.
 
-Evaluation is dataset-aware, and all quality scores are automatic proxies rather than official benchmark or human grades. Inspired by RAG evaluation work~\cite{ru2024ragchecker}, we separate answer overlap, criteria fulfillment, grounding, and resource cost. Token-F1 balances reference-token coverage against extra generated tokens; rubric coverage checks whether benchmark criteria are expressed with exact or content-bearing partial matches; latency is wall-clock seconds per sample; tokens count prompt plus completion; and calls count backbone requests.
+Evaluation is dataset-aware, and all quality scores are automatic proxies rather than official benchmark or human grades. Inspired by RAG evaluation work~\cite{ru2024ragchecker}, we separate answer overlap, criteria fulfillment, grounding, and resource cost. Token-F1 balances reference-token coverage against extra generated tokens; rubric coverage checks whether benchmark criteria are expressed with exact or content-bearing partial matches; latency is wall-clock seconds per sample; and tokens count prompt plus completion tokens.
 
 For EduBench, EB12D averages 12 normalized checks over scenario adaptation, factual/reasoning behavior, and pedagogical application, while EduAlign only measures extracted-score agreement with the benchmark consensus. For TutorEval, tutor-hit measures expert teaching-point coverage with full, partial, or zero credit.
 
@@ -244,22 +246,20 @@ Table~\ref{tab:validation_summary} reports paired 4B comparisons with bootstrap 
 \toprule
 Data & Metric & RAG & Ours & $\Delta$ \\
 \midrule
-\multirow{6}{*}{TutorEval} & Token-F1 & 0.112 & \textbf{0.115} & $+0.004^{\star}$ \\
+\multirow{5}{*}{TutorEval} & Token-F1 & 0.112 & \textbf{0.115} & $+0.004^{\star}$ \\
 & TE hit & 0.938 & \textbf{0.957} & $+0.019^{\star\star}$ \\
 & Rubric & 0.919 & \textbf{0.944} & $+0.026^{\star\star}$ \\
 & Latency (s) & 51.90 & \textbf{49.11} & $-2.79$ \\
 & Tokens & 3975 & \textbf{3490} & $-484^{\star\star\star}$ \\
-& Calls & 1.84 & \textbf{1.56} & $-0.28$ \\
 \midrule
-\multirow{6}{*}{EduBench} & EB12D & 0.367 & \textbf{0.398} & $+0.031^{\star\star\star}$ \\
+\multirow{5}{*}{EduBench} & EB12D & 0.367 & \textbf{0.398} & $+0.031^{\star\star\star}$ \\
 & Rubric & 0.705 & \textbf{0.891} & $+0.186^{\star\star\star}$ \\
 & EduAlign & \textbf{0.166} & 0.126 & $-0.040^{\star\star}$ \\
 & Latency (s) & 19.83 & \textbf{13.90} & $-5.92^{\star\star\star}$ \\
 & Tokens & 4020 & \textbf{2226} & $-1794^{\star\star\star}$ \\
-& Calls & 1.97 & \textbf{1.48} & $-0.49^{\star\star\star}$ \\
 \bottomrule
 \end{tabular}
-\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency, tokens, and calls. Runtime is mean wall-clock seconds/sample on the experiment server.\end{minipage}
+\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency and tokens. Runtime is mean wall-clock seconds/sample on the experiment server.\end{minipage}
 \end{table}
 
 \begin{table}[t]
@@ -273,27 +273,25 @@ Data & Metric & RAG & Ours & $\Delta$ \\
 \toprule
 Data & Metric & RAG & Ours & $\Delta$ \\
 \midrule
-\multirow{6}{*}{TutorEval} & Token-F1 & 0.264 & \textbf{0.272} & $+0.008^{\star}$ \\
+\multirow{5}{*}{TutorEval} & Token-F1 & 0.264 & \textbf{0.272} & $+0.008^{\star}$ \\
 & TE hit & 0.897 & \textbf{0.918} & $+0.021^{\star}$ \\
 & Rubric & 0.861 & \textbf{0.891} & $+0.030^{\star}$ \\
 & Latency (s) & 41.47 & \textbf{40.65} & $-0.82^{\star\star}$ \\
 & Tokens & 6681 & 6730 & $+49$ \\
-& Calls & 1.99 & 1.99 & $-0.01$ \\
 \midrule
-\multirow{6}{*}{EduBench} & EB12D & 0.355 & \textbf{0.425} & $+0.070^{\star\star\star}$ \\
+\multirow{5}{*}{EduBench} & EB12D & 0.355 & \textbf{0.425} & $+0.070^{\star\star\star}$ \\
 & Rubric & 0.634 & \textbf{0.769} & $+0.135^{\star\star\star}$ \\
 & EduAlign & \textbf{0.541} & 0.526 & $-0.015$ \\
 & Latency (s) & 41.91 & \textbf{32.09} & $-9.81^{\star\star\star}$ \\
 & Tokens & 6105 & \textbf{3717} & $-2388^{\star\star\star}$ \\
-& Calls & 2.00 & \textbf{1.81} & $-0.19^{\star\star\star}$ \\
 \bottomrule
 \end{tabular}
-\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}TutorEval uses $n{=}400$ paired samples; EduBench uses $n{=}328$ unique paired rows after duplicate public IDs in the 400-example slice are collapsed. $^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency, tokens, and calls. Runtime is mean wall-clock seconds/sample on the experiment server.\end{minipage}
+\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}TutorEval uses $n{=}400$ paired samples; EduBench uses $n{=}328$ unique paired rows after duplicate public IDs in the 400-example slice are collapsed. $^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency and tokens. Runtime is mean wall-clock seconds/sample on the experiment server.\end{minipage}
 \end{table}
 
 \subsection{Trade-offs}
 
-For TutorEval, the 27B paired CIs are positive for Token-F1, tutor-hit, rubric coverage, and latency. For EduBench, EB12D and rubric coverage improve, latency/tokens/calls decrease, and the small classical-RAG EduAlign edge is not statistically reliable.
+For TutorEval, the 27B paired CIs are positive for Token-F1, tutor-hit, rubric coverage, and latency. For EduBench, EB12D and rubric coverage improve, latency and token use decrease, and the small classical-RAG EduAlign edge is not statistically reliable.
 
 \textsc{MARLET} can use more modules than classical RAG, so resource cost must be reported. Scoped planner queries and the retrieval gate reduce token use in 4B and still reduce latency in 27B, but 27B TutorEval shows that better coverage does not always mean fewer tokens. Thus \textsc{MARLET} decides what grounding a request needs; it is not a universal retrieval replacement.
 
