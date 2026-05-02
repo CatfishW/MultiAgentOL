@@ -96,22 +96,27 @@ B=(K,Q,L,N),
 where $K$ is the maximum number of planner retrieval queries, $Q$ is the maximum number of evidence chunks/tool calls, $L$ is the character budget for packed evidence, and $N$ is the response-token cap.
 
 \begin{table}[t]
-\caption{Framework components and responsibilities.}
-\label{tab:framework_components}
+\caption{Pseudocode for \textsc{MARLET}.}
+\label{tab:marlet_pseudocode}
 \centering
-\small
-\setlength{\tabcolsep}{3pt}
-\renewcommand{\arraystretch}{1.02}
-\begin{tabular}{p{0.25\columnwidth}p{0.63\columnwidth}}
+\scriptsize
+\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{0.93}
+\begin{tabular}{p{0.96\columnwidth}}
 \toprule
-Component & Responsibility \\
+\textbf{Input:} standardized entry $x=(q,o,c,h,r,v,m)$, budget $B$, text index $\mathcal{I}$, thresholds $\tau$. \\
+\textbf{Output:} final answer $y$ and audit records $(R,D,\mathrm{citations},\mathrm{cost})$. \\
 \midrule
-Supervisor & Assigns pedagogical regime and activates retrieval, specialist, rubric, and critic switches. \\
-Planner & Converts the request into instructional steps and up to three scoped retrieval queries. \\
-Diagnoser & Infers visible learning state from the prompt and dialogue, including level and likely misconceptions. \\
-Rubric module & Summarizes explicit rubric items or default answer-quality criteria. \\
-Retriever & Runs only when requested by the route or fallback gate, then reranks and packs evidence. \\
-Tutor/Critic & Generates the final response from the merged brief and checks evidence markers, rubric coverage, and pedagogy. \\
+1. Build routing blob $b(x)=\mathrm{concat}(q,c,r,h)$ and cue scores $s_j(x)$. \\
+2. Select regime $R\in\{\mathrm{LP},\mathrm{RF},\mathrm{AT},\mathrm{EG}\}$ and switches for retrieval, rubric, critic, and modality. \\
+3. Create base context $z_0=(x,R,G,B)$; launch active specialists in parallel. \\
+4. Planner returns $p=(\mathrm{strategy},P)$, where $P$ contains $q$ plus optional key-term, context-aware, and rubric-aware queries capped at $K$. \\
+5. Diagnoser returns visible learner state $\ell$; rubric module returns explicit criteria or default checklist $u$. \\
+6. Merge typed fields into tutoring brief $z_1=(z_0,p,\ell,u)$. \\
+7. If $G(x)=1$, search $\mathcal{I}$ with each query in $P$, deduplicate chunks, rerank against $q$, and pack at most $Q$ chunks under length limit $L$ to form $D$; else set $D=\emptyset$. \\
+8. Assemble one tutor prompt from $(q,o,h,p,\ell,u,D,c)$ and generate draft $y_0=A_{\rm tutor}(z_1,D)$. \\
+9. If $D=\emptyset$ and $s_{\rm ev}(x)\ge\tau_{\rm fb}$, retrieve once with raw $q$, rebuild the prompt, and regenerate $y_0$. \\
+10. If the critic switch is on, revise once for missing citations, uncovered criteria, or poor pedagogy; otherwise return $y_0$. \\
 \bottomrule
 \end{tabular}
 \end{table}
