@@ -130,7 +130,7 @@ s_j(x)=\frac{M_j(x)}{|W_j|},
 \end{equation}
 where $|W_j|$ is the number of cues in family $j$, so $s_j(x)$ is the fraction of that cue family observed in the routing blob. The thresholds are fixed router hyperparameters, not probabilities or learned weights. We choose them in cue-count units so $\tau_{\rm mid}$ requires a repeated cue pattern rather than one accidental word, $\tau_{\rm plan}$ is stricter because a false planning route changes the whole answer structure, and $\tau_{\rm fb}$ is stricter because fallback retrieval costs an extra pass.
 
-The pedagogical regime $R(x)$ is selected in a fixed order:
+After cue scoring, the supervisor chooses a pedagogical regime, meaning the prompt-construction policy used before the final LLM call. Lesson planning (LP) organizes a sequence of learning steps; rubric feedback (RF) evaluates an answer under stated criteria; adaptive tutoring (AT) explains, hints, or corrects misconceptions using visible learner state; and evidence-grounded reasoning (EG) answers mainly from source evidence. Because cues can overlap, $R(x)$ is selected by the priority rule
 \begin{equation}
 R(x)=
 \begin{cases}
@@ -140,7 +140,7 @@ R(x)=
 \mathrm{EG}, & \mathrm{otherwise}.
 \end{cases}
 \end{equation}
-LP, RF, AT, and EG mean lesson planning, rubric feedback, adaptive tutoring, and evidence-grounded reasoning. Planning is checked first because lesson sequencing should not be reduced to short feedback, and its threshold is higher because planning changes the whole response structure. Rubric is checked before tutoring because score and criterion fields impose hard output constraints; tutoring is checked next when student-state cues reach the moderate-support threshold; otherwise the sample is handled as evidence-grounded reasoning.
+The priority order is a design choice about prompt constraints. LP is checked first because sequence-level planning reshapes the whole response; RF is next because scoring criteria are hard constraints; AT follows because learner state changes the explanation style but should not override explicit criteria; EG is the fallback so uncertain cases remain grounded rather than answered from memory.
 
 The retrieval gate implements the same selective-retrieval intuition studied in adaptive RAG: evidence is requested when the sample appears to need external grounding rather than being forced for every input~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}. The gate is
 \begin{equation}
