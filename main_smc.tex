@@ -136,33 +136,33 @@ where $|W_j|$ is the number of cues in family $j$. This score is then adjusted b
 \begin{equation}
 s_j(x)=\min\{1,\;a_j(x)+f_j(x)\}.
 \end{equation}
-Here $s_j(x)$ is the final control score for family $j$, and $f_j(x)$ is a small field bonus. Inline context raises evidence by $0.08$; images raise evidence by $0.05$ and coordination by $0.03$; an explicit rubric raises rubric by $0.20$; and dialogue raises tutoring by $\min(|h|/6,0.50)$, where $|h|$ is the number of dialogue turns. The scores and thresholds are not probabilities or learned parameters. They are normalized control switches in $[0,1]$: $0.35$ means a moderate cue signal is enough to activate tutoring or retrieval support, $0.42$ makes lesson planning stricter because planning changes the whole response structure, and $0.45$ is reserved for fallback retrieval after the first pass returns no evidence.
+Here $s_j(x)$ is the final control score for family $j$, and $f_j(x)$ is a field bonus. The constants are router hyperparameters, not probabilities or learned weights; they can be tuned on validation data, but are fixed across datasets and backbones in our experiments and are not adjusted on test examples. We choose them in cue-count units so their behavior is inspectable. One evidence or coordination cue contributes about $1/12{=}0.08$, one rubric or planning cue contributes about $1/6{=}0.17$, and one tutoring cue contributes about $1/7{=}0.14$. The moderate threshold $\tau_{\rm mid}=0.35$ therefore requires a real pattern rather than one accidental word: evidence needs about five evidence cues, or four cues plus visible context; rubric needs about three rubric cues, or an explicit rubric field plus one rubric cue; tutoring needs several student-state cues or dialogue plus cue evidence. Planning uses the stricter $\tau_{\rm plan}=0.42$, which means at least three planning cues in this rule set, because a false lesson-planning route changes the whole answer structure. The explicit-rubric bonus $\gamma_{\rm rub}=0.20$ is slightly larger than one rubric cue because a rubric field is a stronger signal than an isolated word, but it is still below $\tau_{\rm mid}$ so a rubric field alone cannot dominate without matching rubric language. Inline context adds $0.08$ to evidence, images add $0.05$ to evidence and $0.03$ to coordination, and dialogue adds $\min(|h|/6,0.50)$ to tutoring, where $|h|$ is the number of dialogue turns; the cap prevents long conversations from overwhelming the current task.
 
 The pedagogical regime $R(x)$ is selected in a fixed order:
 \begin{equation}
 R(x)=
 \begin{cases}
-\mathrm{LP}, & s_{\rm pl}\ge s_{\rm ru},\ s_{\rm pl}\ge s_{\rm tu},\ s_{\rm pl}\ge0.42,\\
-\mathrm{RF}, & s_{\rm ru}\ge s_{\rm tu},\ s_{\rm ru}\ge0.35,\\
-\mathrm{AT}, & s_{\rm tu}\ge 0.35,\\
+\mathrm{LP}, & s_{\rm pl}\ge s_{\rm ru},\ s_{\rm pl}\ge s_{\rm tu},\ s_{\rm pl}\ge\tau_{\rm plan},\\
+\mathrm{RF}, & s_{\rm ru}\ge s_{\rm tu},\ s_{\rm ru}\ge\tau_{\rm mid},\\
+\mathrm{AT}, & s_{\rm tu}\ge \tau_{\rm mid},\\
 \mathrm{EG}, & \mathrm{otherwise}.
 \end{cases}
 \end{equation}
-LP, RF, AT, and EG mean lesson planning, rubric feedback, adaptive tutoring, and evidence-grounded reasoning. Planning is checked first because lesson sequencing should not be reduced to short feedback; rubric is checked before tutoring because score and criterion fields impose hard output constraints; tutoring is checked next when student-state cues are strong; otherwise the sample is handled as evidence-grounded reasoning.
+LP, RF, AT, and EG mean lesson planning, rubric feedback, adaptive tutoring, and evidence-grounded reasoning. Planning is checked first because lesson sequencing should not be reduced to short feedback, and its threshold is higher because planning changes the whole response structure. Rubric is checked before tutoring because score and criterion fields impose hard output constraints; tutoring is checked next when student-state cues reach the moderate-support threshold; otherwise the sample is handled as evidence-grounded reasoning.
 
 The retrieval gate implements the same selective-retrieval intuition studied in adaptive RAG: evidence is requested when the sample appears to need external grounding rather than being forced for every input~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}. The gate is
 \begin{equation}
 G(x)=
 \begin{cases}
-1, & s_{\rm ev}\ge 0.35\ \mathrm{or}\ R(x)=\mathrm{EG},\\
+1, & s_{\rm ev}\ge \tau_{\rm mid}\ \mathrm{or}\ R(x)=\mathrm{EG},\\
 0, & \mathrm{otherwise}.
 \end{cases}
 \end{equation}
-Thus retrieval runs only when the evidence score reaches the moderate-support threshold $0.35$ or when the selected regime is evidence-grounded. A fallback gate is kept for missed evidence cases and uses the stricter $0.45$ threshold because it triggers an additional retrieval-and-tutor pass:
+Thus retrieval runs only when the evidence score reaches $\tau_{\rm mid}$ or when the selected regime is evidence-grounded. This choice favors recall for initial grounding: missing needed evidence is more harmful than retrieving one small evidence bundle. A fallback gate is kept for missed evidence cases and uses the stricter $\tau_{\rm fb}=0.45$ because it triggers an additional retrieval-and-tutor pass:
 \begin{equation}
 G_{\rm fb}(x)=
 \begin{cases}
-1, & D_0\ \mathrm{is\ empty\ and}\ s_{\rm ev}\ge 0.45,\\
+1, & D_0\ \mathrm{is\ empty\ and}\ s_{\rm ev}\ge \tau_{\rm fb},\\
 0, & \mathrm{otherwise}.
 \end{cases}
 \end{equation}
