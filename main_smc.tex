@@ -179,31 +179,15 @@ The tools are side-effect-free local functions, not open-ended autonomous action
 
 This is also the communication pattern among agents. MARLET uses fan-out/fan-in coordination: the coordinator sends the same normalized entry to active specialists in parallel, executes validated tool calls, fills deterministic fallbacks if any output is malformed, and merges $(R,G,p,\ell,u,T)$ into one response brief. If $G=1$, retrieval uses $P$ to build evidence bundle $D$; if $G=0$, the brief bypasses external chunks. In both cases, the generator receives explicit prompt blocks for plan, visible state, criteria, tool observations, and evidence instead of inferring these constraints from one overloaded query.
 
-\subsection{Conditional Retrieval and Evidence Packing}
+\subsection{Conditional Retrieval as a Bounded Tool}
 
-\textsc{MARLET} contains retrieval, but retrieval is not the top-level controller and does not require a traditional dense vector database. When $G(x)=1$, the retrieval tool searches the local hybrid text index with up to $K$ planner intents. This avoids an extra generator-facing retrieval round while preserving the tool-use interface. For a query $q_i$ and candidate chunk $d$, the base retrieval score is
-\begin{equation}
-\mathrm{base}(q_i,d)=
-w_{\rm lex}\mathrm{lex}+w_{\rm char}\mathrm{char}+w_{\rm svd}\mathrm{svd}+\beta .
-\end{equation}
-Here $\mathrm{lex}$ is word TF--IDF similarity, $\mathrm{char}$ is character $3$--$5$ gram TF--IDF similarity, $\mathrm{svd}$ is truncated-SVD similarity, $\beta$ is a small title/source boost, and the $w$ terms are fixed retriever weights. Candidates from all planner queries are merged, and duplicate chunks keep their highest score.
+Retrieval is an optional tool inside the coordination loop, not the main contribution. After the LLM specialists produce the response brief, the coordinator uses the gate $G$ to decide whether external evidence should enter the final prompt. If $G=0$, the generator receives the plan, visible state, criteria, and tool observations without retrieved chunks. If $G=1$, only the planner intents $P$ are sent to the corpus-search tool; long dialogue, criteria text, and state summaries stay in the generator prompt rather than becoming noisy retrieval queries.
 
-The reranker then scores each candidate against the original question:
+The retrieval tool returns a compact evidence bundle $D$:
 \begin{equation}
-\begin{aligned}
-\mathrm{rank}(q,d)=&\alpha_{\rm base}\mathrm{base}+\alpha_{\rm tok}o_{\rm tok}
-+\alpha_{\rm title}o_{\rm title}\\
-&+\alpha_{\rm phr}m_{\rm phr}+\alpha_{\rm num}o_{\rm num}
-+\alpha_{\rm len}b_{\rm len}.
-\end{aligned}
+D=\mathrm{Pack}(\mathrm{Search}(P,C), Q, L),
 \end{equation}
-Here $o_{\rm tok}$ is token overlap with $q$, $o_{\rm title}$ is title-token overlap, $m_{\rm phr}$ is an exact phrase-match flag, $o_{\rm num}$ is numeric overlap, $b_{\rm len}$ rewards moderate chunk length, and the $\alpha$ terms are fixed reranker weights. The state summary $\ell$ affects retrieval through the route and planner queries, not these weights.
-
-Evidence packing integrates the relevance-diversity tradeoff used in MMR-style selection~\cite{carbonell1998mmr}: the context should be useful, but repeated chunks should not consume the limited evidence space. For each candidate chunk $d$, \textsc{MARLET} computes
-\begin{equation}
-\mathrm{pack}(d)=\lambda\,\mathrm{rank}(q,d)-(1-\lambda)\,\mathrm{repeat}(d).
-\end{equation}
-Here $\mathrm{repeat}(d)$ is the largest sentence overlap between $d$ and selected chunks, and $\lambda$ controls the relevance-diversity balance. The packer adds the remaining chunk with the highest $\mathrm{pack}(d)$ score until $Q$ chunks or the $L$ character limit is reached, forming evidence bundle $D$.
+where $C$ is the configured corpus or index, $Q$ limits the number of chunks, and $L$ limits the evidence length. In implementation, \textsc{Search} uses a fixed lightweight hybrid retriever and reranker shared by all controllers, and \textsc{Pack} keeps relevant but non-redundant snippets following the standard relevance-diversity intuition of MMR-style selection~\cite{carbonell1998mmr}. These details are held constant across baselines. The methodological point is the agentic control: LLM specialists decide what should be searched and whether search is needed, while retrieved evidence is only one typed block that later converges with the other agent outputs.
 
 \subsection{Generation and Critic Revision}
 
@@ -224,7 +208,7 @@ The primary validation compares three context controllers under matched infrastr
 
 \subsection{Implementation Details}
 
-All controllers use the same deployed Python framework, corpus, hybrid text index, reranker, generator, critic, cache policy, and metric code; only context assembly differs. The planner, state diagnoser, criteria module, generator, and critic use the same configured backbone; deterministic fallbacks run only when an LLM response is unavailable or malformed. MARLET enables bounded local tool calls for specialist observations and corpus search, with no network, file mutation, or open-ended shell access. LLM endpoints are served through SGLang, whose runtime is designed for structured multi-call LLM programs and KV-cache reuse~\cite{zheng2024sglang}. We also enable exact model-response caching for every controller because repeated prompts, fixed criteria, and repeated served requests are normal in deployed systems; a hit requires an identical full payload and is marked in the result artifacts. Therefore latency is cache-aware served-system wall time, not a cold-start model benchmark. Runs use \textsc{Qwen3.5-4B} and \textsc{Qwen3.5-27B-FP8}, reasoning budget 512, generation temperature 0.15, specialist JSON temperature 0.0, and response cap $N{=}900$ on \texttt{benwulab-Lambda-Vector} with two NVIDIA RTX 6000 Ada GPUs. We set $K{=}3$, $Q{=}4$, $L{=}6000$, router thresholds $(\tau_{\rm mid},\tau_{\rm plan},\tau_2)=(0.35,0.42,0.45)$, retriever weights $(0.58,0.17,0.25)$, reranker weights $(0.55,0.20,0.10,0.06,0.05,0.04)$, and packing weight $\lambda{=}0.68$.
+All controllers use the same deployed Python framework, corpus, hybrid text index, reranker, generator, critic, cache policy, and metric code; only context assembly differs. The planner, state diagnoser, criteria module, generator, and critic use the same configured backbone; deterministic fallbacks run only when an LLM response is unavailable or malformed. MARLET enables bounded local tool calls for specialist observations and corpus search, with no network, file mutation, or open-ended shell access. LLM endpoints are served through SGLang, whose runtime is designed for structured multi-call LLM programs and KV-cache reuse~\cite{zheng2024sglang}. We also enable exact model-response caching for every controller because repeated prompts, fixed criteria, and repeated served requests are normal in deployed systems; a hit requires an identical full payload and is marked in the result artifacts. Therefore latency is cache-aware served-system wall time, not a cold-start model benchmark. Runs use \textsc{Qwen3.5-4B} and \textsc{Qwen3.5-27B-FP8}, reasoning budget 512, generation temperature 0.15, specialist JSON temperature 0.0, and response cap $N{=}900$ on \texttt{benwulab-Lambda-Vector} with two NVIDIA RTX 6000 Ada GPUs. We set $K{=}3$, $Q{=}4$, $L{=}6000$, and router thresholds $(\tau_{\rm mid},\tau_{\rm plan},\tau_2)=(0.35,0.42,0.45)$.
 
 Evaluation is dataset-aware, and all quality scores are automatic proxies rather than official benchmark or human grades. Inspired by RAG evaluation work~\cite{ru2024ragchecker}, we separate answer overlap, criteria fulfillment, grounding, and resource cost. Token-F1 balances reference-token coverage against extra generated tokens; rubric coverage checks whether benchmark criteria are expressed with exact or content-bearing partial matches; latency is served wall-clock seconds per sample under the shared cache policy; and tokens count prompt plus completion tokens.
 
