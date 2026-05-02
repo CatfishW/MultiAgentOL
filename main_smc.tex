@@ -97,7 +97,7 @@ where $y$ is the final tutor answer, $\mathrm{route}$ records the selected pedag
 \[
 B=(K,Q,L,N),
 \]
-where $K$ is the maximum number of planner retrieval queries, $Q$ is the maximum number of evidence chunks/tool calls, $L$ is the character budget for packed evidence, and $N$ is the response-token cap. Experiments fix $K{=}3$, $Q{=}4$, $L{=}6000$, and $N{=}900$.
+where $K$ is the maximum number of planner retrieval queries, $Q$ is the maximum number of evidence chunks/tool calls, $L$ is the character budget for packed evidence, and $N$ is the response-token cap.
 
 \begin{table}[t]
 \caption{Framework components and responsibilities.}
@@ -136,7 +136,7 @@ where $|W_j|$ is the number of cues in family $j$. The supervisor uses this norm
 \begin{equation}
 s_j(x)=a_j(x).
 \end{equation}
-Here $s_j(x)$ is the final control score for family $j$. The thresholds are fixed router hyperparameters, not probabilities or learned weights. We choose them in cue-count units: one evidence or coordination cue contributes about $1/12{=}0.08$, one rubric or planning cue about $1/6{=}0.17$, and one tutoring cue about $1/7{=}0.14$. Thus $\tau_{\rm mid}$ is set to $0.35$ so a route needs a repeated cue pattern rather than one accidental word; $\tau_{\rm plan}$ is set to $0.42$ because a false planning route changes the whole answer structure; and $\tau_{\rm fb}$ is set to $0.45$ because fallback retrieval costs an extra pass.
+Here $s_j(x)$ is the final control score for family $j$. The thresholds are fixed router hyperparameters, not probabilities or learned weights. We choose them in cue-count units so $\tau_{\rm mid}$ requires a repeated cue pattern rather than one accidental word, $\tau_{\rm plan}$ is stricter because a false planning route changes the whole answer structure, and $\tau_{\rm fb}$ is stricter because fallback retrieval costs an extra pass.
 
 The pedagogical regime $R(x)$ is selected in a fixed order:
 \begin{equation}
@@ -186,7 +186,7 @@ From $z_0$, the planner, diagnoser, and rubric module run in parallel when their
 (p,\ell,u)=
 \big(A_{\rm plan}(z_0),A_{\rm diag}(z_0),A_{\rm rub}(z_0)\big).
 \end{equation}
-Here $p$ is the planner output, consisting of a short operating plan and up to $K=3$ retrieval queries; $\ell$ is the visible learner-state summary; and $u$ is the rubric summary or default answer-quality checklist. Parallel execution means these agents all read $z_0$ and return typed outputs independently; the tutor never has to infer the plan, learner state, and rubric from one overloaded query string.
+Here $p$ is the planner output, consisting of a short operating plan and up to $K$ retrieval queries; $\ell$ is the visible learner-state summary; and $u$ is the rubric summary or default answer-quality checklist. Parallel execution means these agents all read $z_0$ and return typed outputs independently; the tutor never has to infer the plan, learner state, and rubric from one overloaded query string.
 
 The planner starts its query set with $q$, adds a compact key-term query from longer tokens in $q$, adds a context-aware query when $c$ is present, and adds a rubric-aware query when $r$ is present. Duplicate queries are removed and the list is capped by $K$. The diagnoser reflects tutoring work showing that LLM tutor quality depends on student-context features~\cite{liu2026agenttutor,borchers2025adaptivity}. It infers only visible state from $q$ and $h$: level defaults to intermediate, beginner or advanced cues can override it, dialogue cues can add misconceptions, and style cues can request step-by-step, concise, or analogy-based explanation. This is not a persistent student profile. The rubric module preserves explicit criteria when available; otherwise it supplies default criteria of correctness, clarity, scaffolding, and actionable feedback. The merged tutoring brief is
 \begin{equation}
@@ -200,7 +200,7 @@ z_1=(z_0,p,\ell,u).
 \mathrm{base}(q_i,d)=
 w_{\rm lex}\mathrm{lex}+w_{\rm char}\mathrm{char}+w_{\rm svd}\mathrm{svd}+\beta .
 \end{equation}
-Here $\mathrm{lex}$ is word TF--IDF similarity, $\mathrm{char}$ is character $3$--$5$ gram TF--IDF similarity, $\mathrm{svd}$ is truncated-SVD similarity, and $\beta$ is a small title/source boost. The fixed weights $(w_{\rm lex},w_{\rm char},w_{\rm svd})=(0.58,0.17,0.25)$ emphasize lexical evidence while keeping typo robustness and semantic smoothing. Candidates from all planner queries are merged, and duplicate chunks keep their highest score.
+Here $\mathrm{lex}$ is word TF--IDF similarity, $\mathrm{char}$ is character $3$--$5$ gram TF--IDF similarity, $\mathrm{svd}$ is truncated-SVD similarity, $\beta$ is a small title/source boost, and the $w$ terms are fixed retriever weights. Candidates from all planner queries are merged, and duplicate chunks keep their highest score.
 
 The reranker then scores each candidate against the original question:
 \begin{equation}
@@ -211,13 +211,13 @@ The reranker then scores each candidate against the original question:
 +\alpha_{\rm len}b_{\rm len}.
 \end{aligned}
 \end{equation}
-Here $o_{\rm tok}$ is token overlap with $q$, $o_{\rm title}$ is title-token overlap, $m_{\rm phr}$ is an exact phrase-match flag, $o_{\rm num}$ is numeric overlap, and $b_{\rm len}$ rewards moderate chunk length. The $\alpha$ weights are fixed to $(0.55,0.20,0.10,0.06,0.05,0.04)$ in the order shown. The learner summary $\ell$ affects retrieval through the route and planner queries, not these weights.
+Here $o_{\rm tok}$ is token overlap with $q$, $o_{\rm title}$ is title-token overlap, $m_{\rm phr}$ is an exact phrase-match flag, $o_{\rm num}$ is numeric overlap, $b_{\rm len}$ rewards moderate chunk length, and the $\alpha$ terms are fixed reranker weights. The learner summary $\ell$ affects retrieval through the route and planner queries, not these weights.
 
 Evidence packing follows the relevance-diversity tradeoff used in MMR-style selection~\cite{carbonell1998mmr}: the context should be useful, but repeated chunks should not consume the limited evidence budget. For each candidate chunk $d$, \textsc{MARLET} computes
 \begin{equation}
 \mathrm{pack}(d)=\lambda\,\mathrm{rank}(q,d)-(1-\lambda)\,\mathrm{repeat}(d).
 \end{equation}
-Here $\mathrm{repeat}(d)$ is the largest sentence overlap between $d$ and selected chunks, and $\lambda{=}0.68$ keeps relevance primary while penalizing duplicate evidence. The packer adds the remaining chunk with the highest $\mathrm{pack}(d)$ score until $Q$ chunks or the $L$ character limit is reached, forming evidence bundle $D$.
+Here $\mathrm{repeat}(d)$ is the largest sentence overlap between $d$ and selected chunks, and $\lambda$ controls the relevance-diversity balance. The packer adds the remaining chunk with the highest $\mathrm{pack}(d)$ score until $Q$ chunks or the $L$ character limit is reached, forming evidence bundle $D$.
 
 \subsection{Tutor Generation and Critic Revision}
 
@@ -246,7 +246,11 @@ Here $I(y_0,z_2)$ is the number of issues found by the critic. Issues include mi
 
 We validate the framework on two public educational benchmarks. TutorEval~\cite{chevalier2024sciencetutors} contains 834 expert-written science tutoring questions paired with long STEM chapters and teaching key points, so responses must explain, disambiguate, and stay chapter-grounded. EduBench~\cite{xu2025edubench} covers nine educational scenarios, including question answering, error correction, personalized support, emotional support, grading, teaching-material generation, and personalized content creation. Its rows contain prompts, scenario metadata, and reference model predictions; our adapter converts them into consensus-style supervision through score statistics and rubric terms.
 
-The primary validation compares classical RAG with \textsc{MARLET} under matched \textsc{Qwen3.5-4B} infrastructure, reasoning budget 512, temperature 0.15, response cap 900, shared corpus, shared reranker, and fixed retrieval hyperparameters; a smaller \textsc{Qwen3.5-27B-FP8} replication checks backbone sensitivity. Classical RAG runs retrieval first from the raw standardized prompt. If the prompt already contains a learner profile, student answer, dialogue, or rubric text, that visible information remains available to the baseline; it is not removed. What the baseline lacks is \textsc{MARLET}'s explicit planner query construction, diagnosis, rubric brief, route decision, retrieval gate, and fallback logic. We report quality and cost together because \textsc{MARLET} changes context construction while keeping the infrastructure shared.
+The primary validation compares classical RAG with \textsc{MARLET} under matched infrastructure; a \textsc{Qwen3.5-27B-FP8} replication checks backbone sensitivity. Classical RAG runs retrieval first from the raw standardized prompt. If the prompt already contains a learner profile, student answer, dialogue, or rubric text, that visible information remains available to the baseline; it is not removed. What the baseline lacks is \textsc{MARLET}'s explicit planner query construction, diagnosis, rubric brief, route decision, retrieval gate, and fallback logic. We report quality and cost together because \textsc{MARLET} changes context construction while keeping the infrastructure shared.
+
+\subsection{Implementation Details}
+
+Both systems use the same deployed Python framework, corpus, hybrid text index, reranker, tutor, critic, and metric code; only context assembly differs. Runs use the OpenAI-compatible endpoint at \texttt{llm.agaii.org/v1} with \textsc{Qwen3.5-4B} and \textsc{Qwen3.5-27B-FP8}, reasoning budget 512, temperature 0.15, and response cap $N{=}900$. The checked server \texttt{benwulab-Lambda-Vector} runs Ubuntu Linux 6.8 and Python 3.10.12 with two NVIDIA RTX 6000 Ada GPUs (49140 MiB each), driver 570.207, and CUDA 12.8. We set $K{=}3$, $Q{=}4$, and $L{=}6000$; router thresholds $(\tau_{\rm mid},\tau_{\rm plan},\tau_{\rm fb})=(0.35,0.42,0.45)$; retriever weights $(w_{\rm lex},w_{\rm char},w_{\rm svd})=(0.58,0.17,0.25)$; reranker weights $(\alpha_{\rm base},\alpha_{\rm tok},\alpha_{\rm title},\alpha_{\rm phr},\alpha_{\rm num},\alpha_{\rm len})=(0.55,0.20,0.10,0.06,0.05,0.04)$; and packing weight $\lambda{=}0.68$.
 
 Evaluation is dataset-aware, and all reported quality scores are automatic proxies rather than official benchmark or human grades. Higher is better for quality metrics; lower is better for latency, tokens, and calls. Following RAG evaluation work~\cite{ru2024ragchecker}, we separate answer overlap, rubric fulfillment, grounding, and resource cost. Token-F1 rewards overlap with the reference while balancing extra generated tokens against missed reference tokens. Rubric coverage checks whether each benchmark rubric item is actually expressed; near-verbatim coverage receives credit, and partial token overlap must include content-bearing words so that generic feedback is not over-rewarded. Latency is wall-clock time per sample; total tokens are prompt plus completion tokens; backbone calls count logged LLM requests.
 
@@ -282,7 +286,7 @@ Data & Metric & RAG & Ours & $\Delta$ \\
 & Calls & 1.97 & \textbf{1.48} & $-0.49^{\star\star\star}$ \\
 \bottomrule
 \end{tabular}
-\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency, tokens, and calls. Runtime is mean wall-clock seconds/sample on the 4090 server.\end{minipage}
+\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency, tokens, and calls. Runtime is mean wall-clock seconds/sample on the experiment server.\end{minipage}
 \end{table}
 
 \begin{table}[t]
@@ -311,7 +315,7 @@ Data & Metric & RAG & Ours & $\Delta$ \\
 & Calls & 2.00 & \textbf{1.81} & $-0.19^{\star\star\star}$ \\
 \bottomrule
 \end{tabular}
-\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}TutorEval uses $n{=}400$ paired samples; EduBench uses $n{=}328$ unique paired rows after duplicate public IDs in the 400-example slice are collapsed. $^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency, tokens, and calls. Runtime is mean wall-clock seconds/sample on the 4090 server.\end{minipage}
+\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}TutorEval uses $n{=}400$ paired samples; EduBench uses $n{=}328$ unique paired rows after duplicate public IDs in the 400-example slice are collapsed. $^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency, tokens, and calls. Runtime is mean wall-clock seconds/sample on the experiment server.\end{minipage}
 \end{table}
 
 \subsection{Trade-offs}
