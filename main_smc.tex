@@ -79,7 +79,7 @@ Recent educational work shows that tutoring quality requires more than answer ac
 \section{Methodology}
 \label{sec:methodology}
 
-\textsc{MARLET} is a tutoring framework that turns one educational request into a grounded tutor response. Its design follows three principles. First, routing is explicit: the system decides whether the request needs evidence, rubric feedback, adaptive tutoring, or planning before retrieval is attempted. Second, agents exchange structured state rather than free-form conversation. Third, retrieval is conditional and scoped by the tutoring brief, not by the surface query alone. Selective retrieval is motivated by adaptive RAG methods~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}, role decomposition by ReAct and AutoGen~\cite{yao2023react,wu2024autogen}, learner-state modeling by tutoring studies~\cite{liu2026agenttutor,borchers2025adaptivity}, and compact evidence packing by MMR~\cite{carbonell1998mmr}.
+\textsc{MARLET} is a tutoring framework that turns one educational request into a grounded tutor response. Its design follows three principles. First, routing is explicit: the system decides whether the request needs evidence, rubric feedback, adaptive tutoring, or planning before retrieval is attempted. Second, agents exchange structured state rather than free-form conversation. Third, retrieval is conditional and scoped by the tutoring brief, not by the surface query alone.
 
 \subsection{Input, Output, and Budget}
 
@@ -150,7 +150,7 @@ R(x)=
 \end{equation}
 LP, RF, AT, and EG mean lesson planning, rubric feedback, adaptive tutoring, and evidence-grounded reasoning. Planning is checked first because lesson sequencing should not be reduced to short feedback; rubric is checked before tutoring because score and criterion fields impose hard output constraints; tutoring is checked next when student-state cues are strong; otherwise the sample is handled as evidence-grounded reasoning.
 
-The retrieval gate is
+The retrieval gate implements the same selective-retrieval intuition studied in adaptive RAG: evidence is requested when the sample appears to need external grounding rather than being forced for every input~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}. The gate is
 \begin{equation}
 G(x)={\bf 1}[s_{\rm ev}(x)\ge 0.35\;\mathrm{or}\;R(x)=\mathrm{EG}].
 \end{equation}
@@ -169,7 +169,7 @@ where $D_0$ is the evidence bundle from the first retrieval attempt. If $G_{\rm 
 
 \subsection{Parallel Agent Brief Construction}
 
-Agents do not send open-ended messages to each other. They read and write a shared context. The initial context is
+MARLET uses role decomposition for planning, diagnosis, and rubric analysis, following the broader finding that tool-using and multi-agent LLM systems benefit from separating responsibilities~\cite{yao2023react,wu2024autogen}. Agents do not send open-ended messages to each other. They read and write a shared context. The initial context is
 \begin{equation}
 z_0=(x,R(x),G(x),B).
 \end{equation}
@@ -180,7 +180,7 @@ From $z_0$, the planner, diagnoser, and rubric module run in parallel when their
 \end{equation}
 Here $p$ is the planner output, consisting of a short operating plan and up to $K=3$ retrieval queries; $\ell$ is the visible learner-state summary; and $u$ is the rubric summary or default answer-quality checklist. Parallel execution means these agents all read $z_0$ and return typed outputs independently; the tutor never has to infer the plan, learner state, and rubric from one overloaded query string.
 
-The planner starts its query set with $q$, adds a compact key-term query from longer tokens in $q$, adds a context-aware query when $c$ is present, and adds a rubric-aware query when $r$ is present. Duplicate queries are removed and the list is capped by $K$. The diagnoser infers only visible state from $q$ and $h$: level defaults to intermediate, beginner or advanced cues can override it, dialogue cues can add misconceptions, and style cues can request step-by-step, concise, or analogy-based explanation. This is not a persistent student profile. The rubric module preserves explicit criteria when available; otherwise it supplies default criteria of correctness, clarity, scaffolding, and actionable feedback. The merged tutoring brief is
+The planner starts its query set with $q$, adds a compact key-term query from longer tokens in $q$, adds a context-aware query when $c$ is present, and adds a rubric-aware query when $r$ is present. Duplicate queries are removed and the list is capped by $K$. The diagnoser reflects tutoring work showing that LLM tutor quality depends on student-context features~\cite{liu2026agenttutor,borchers2025adaptivity}. It infers only visible state from $q$ and $h$: level defaults to intermediate, beginner or advanced cues can override it, dialogue cues can add misconceptions, and style cues can request step-by-step, concise, or analogy-based explanation. This is not a persistent student profile. The rubric module preserves explicit criteria when available; otherwise it supplies default criteria of correctness, clarity, scaffolding, and actionable feedback. The merged tutoring brief is
 \begin{equation}
 z_1=z_0\cup\{p,\ell,u\}.
 \end{equation}
@@ -202,7 +202,7 @@ The reranker then scores each candidate against the original question:
 \end{equation}
 In this formula, $o_{\rm tok}$ is token overlap with $q$, $o_{\rm title}$ is title-token overlap, $m_{\rm phr}$ is an exact phrase-match flag, $o_{\rm num}$ is numeric overlap, and $b_{\rm len}$ rewards moderate chunk length. The learner summary $\ell$ does not directly change these weights; personalization affects retrieval through the route and planner queries.
 
-Evidence packing selects a compact nonredundant set. Let $U$ be the reranked candidate pool and $S$ be the set already selected. The next chunk is
+Evidence packing follows the relevance-diversity tradeoff used in MMR-style selection~\cite{carbonell1998mmr}: the context should be useful, but repeated chunks should not consume the limited evidence budget. Let $U$ be the reranked candidate pool and $S$ be the set already selected. The next chunk is
 \begin{equation}
 d^\star=\arg\max_{d\in U\setminus S}
 .68\,\mathrm{rank}(q,d)-.32\,\mathrm{red}(d,S),
