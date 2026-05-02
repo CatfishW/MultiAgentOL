@@ -87,9 +87,9 @@ For one sample, \textsc{MARLET} first standardizes all visible fields into
 \begin{equation}
 x=(q,o,c,h,r,v,m).
 \end{equation}
-Here, $q$ is the student question or task prompt; $o$ is an optional answer-option list; $c$ is optional inline context such as a chapter excerpt; $h$ is recent dialogue; $r$ is an optional rubric or answer-criteria list; $v$ is an optional image list; and $m$ stores metadata used for logging or formatting. Empty fields are allowed, so the same representation covers factual questions, grading requests, feedback requests, and planning requests.
+Here, $q$ is the student question or task prompt; $o$ is an optional answer-option list; $c$ is optional inline context such as a chapter excerpt; $h$ is recent dialogue; $r$ is an optional rubric or answer-criteria list; $v$ is an optional image list; and $m$ stores dataset identifiers or formatting metadata. Empty fields are allowed, so the same representation covers factual questions, grading requests, feedback requests, and planning requests.
 
-The only student-facing output is the final tutor answer $y$. \textsc{MARLET} also stores internal records: a route record, which names the selected tutoring mode and which modules run; an evidence bundle $D$, which contains packed retrieved chunks; citation identifiers, which link chunks in $D$ to their sources; and a cost log for token, latency, and call counts. These records are not answers. Planner output, learner-state summary, rubric summary, and $D$ are assembled as prompt blocks before the LLM tutor generates $y$. The shared budget is
+The only student-facing output is the final tutor answer $y$. \textsc{MARLET} also keeps internal grounding records: a route record, which names the selected tutoring mode and which modules run; an evidence bundle $D$, which contains packed retrieved chunks; and citation identifiers, which link chunks in $D$ to their sources. These records are not separate answers. Planner output, learner-state summary, rubric summary, and $D$ are assembled as prompt blocks before the LLM tutor generates $y$. The shared budget is
 \[
 B=(K,Q,L,N),
 \]
@@ -105,7 +105,7 @@ where $K$ is the maximum number of planner retrieval queries, $Q$ is the maximum
 \multicolumn{2}{@{}l@{}}{\textbf{Algorithm 1: \textsc{MARLET} Inference Process}}\\
 \midrule
 \multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Require:} entry $x=(q,o,c,h,r,v,m)$, budget $B=(K,Q,L,N)$, index $\mathcal{I}$, thresholds $\tau$.}\\
-\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Return:} answer $y$ and audit fields $(R,D,\mathrm{citations},\mathrm{cost})$.}\\
+\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Return:} answer $y$ and internal grounding fields $(R,D,\mathrm{citations})$.}\\
 \midrule
 1: & $b\leftarrow \mathrm{concat}(q,c,r,h)$; $s\leftarrow\mathrm{CueScores}(b)$\\
 2: & $(R,G,\mathrm{sw})\leftarrow \mathrm{Route}(s,r,v,\tau)$\\
@@ -125,7 +125,7 @@ where $K$ is the maximum number of planner retrieval queries, $Q$ is the maximum
 16: & \quad $y_0\leftarrow A_{\rm tutor}(\mathrm{Prompt}(q,o,h,p,\ell,u,D,c))$\\
 17: & \textbf{end if}\\
 18: & \textbf{if} $\mathrm{sw.critic}$ \textbf{then} $y\leftarrow A_{\rm crit}(y_0,z_1,D)$ \textbf{else} $y\leftarrow y_0$\\
-19: & \textbf{return} $y,(R,D,\mathrm{ids}(D),\mathrm{cost})$\\
+19: & \textbf{return} $y,(R,D,\mathrm{ids}(D))$\\
 \bottomrule
 \end{tabular}
 \label{tab:marlet_pseudocode}
@@ -261,7 +261,7 @@ All controllers use the same deployed Python framework, corpus, hybrid text inde
 
 Evaluation is dataset-aware, and all reported quality scores are automatic proxies rather than official benchmark or human grades. Higher is better for quality metrics; lower is better for latency, tokens, and calls. Following RAG evaluation work~\cite{ru2024ragchecker}, we separate answer overlap, rubric fulfillment, grounding, and resource cost. Token-F1 rewards overlap with the reference while balancing extra generated tokens against missed reference tokens. Rubric coverage checks whether each benchmark rubric item is actually expressed; near-verbatim coverage receives credit, and partial token overlap must include content-bearing words so that generic feedback is not over-rewarded. Latency is wall-clock time per sample; total tokens are prompt plus completion tokens; backbone calls count logged LLM requests.
 
-For EduBench, EB12D averages 12 normalized checks in three groups: scenario adaptation, factual or reasoning behavior, and pedagogical application. These checks cover output-format compliance, supportive tone, relevance, use of scenario details, score agreement, domain and rubric grounding, reasoning quality, correction cues, clarity, motivation, personalization, and higher-order prompting. EduAlign is narrower: it only measures how close the extracted numeric score is to the benchmark's consensus score. Thus EduAlign can decrease even when explanatory feedback or rubric coverage improves. For TutorEval, tutor-hit measures expert teaching-point coverage. A key point receives full credit when it is explicitly stated or strongly covered, partial credit when the answer overlaps with enough of the key point, and no credit when the idea is absent. Off-profile metrics remain zeros in raw logs but are omitted from paper tables. The workload audit is a fixed weighted cost summary over tokens, retrieval queries, retrieved chunks, materialized agent outputs, and trace events; it is for efficiency inspection only and is not a training objective.
+For EduBench, EB12D averages 12 normalized checks in three groups: scenario adaptation, factual or reasoning behavior, and pedagogical application. These checks cover output-format compliance, supportive tone, relevance, use of scenario details, score agreement, domain and rubric grounding, reasoning quality, correction cues, clarity, motivation, personalization, and higher-order prompting. EduAlign is narrower: it only measures how close the extracted numeric score is to the benchmark's consensus score. Thus EduAlign can decrease even when explanatory feedback or rubric coverage improves. For TutorEval, tutor-hit measures expert teaching-point coverage. A key point receives full credit when it is explicitly stated or strongly covered, partial credit when the answer overlaps with enough of the key point, and no credit when the idea is absent. Off-profile metrics are omitted from paper tables. The workload summary is used only for efficiency inspection and is not a training objective.
 
 \subsection{Framework Validation}
 
