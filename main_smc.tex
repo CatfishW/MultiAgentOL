@@ -95,9 +95,9 @@ The pipeline returns
 \end{equation}
 where $y$ is the final tutor answer, $\mathrm{route}$ records the selected pedagogical regime and module switches, $D$ is the final evidence bundle, $\mathrm{cit}$ contains citation identifiers from retrieved chunks, and $\mathrm{log}$ stores trace and cost information. The budget is
 \[
-B=(K,Q,L,N)=(3,4,6000,900),
+B=(K,Q,L,N),
 \]
-where $K$ is the maximum number of planner retrieval queries, $Q$ is the maximum number of evidence chunks/tool calls, $L$ is the character budget for packed evidence, and $N$ is the response-token cap.
+where $K$ is the maximum number of planner retrieval queries, $Q$ is the maximum number of evidence chunks/tool calls, $L$ is the character budget for packed evidence, and $N$ is the response-token cap. Experiments fix $K{=}3$, $Q{=}4$, $L{=}6000$, and $N{=}900$.
 
 \begin{table}[t]
 \caption{Framework components and responsibilities.}
@@ -136,7 +136,7 @@ where $|W_j|$ is the number of cues in family $j$. This score is then adjusted b
 \begin{equation}
 s_j(x)=\min\{1,\;a_j(x)+f_j(x)\}.
 \end{equation}
-Here $s_j(x)$ is the final control score for family $j$, and $f_j(x)$ is a field bonus. The constants are router hyperparameters, not probabilities or learned weights; they can be tuned on validation data, but are fixed across datasets and backbones in our experiments and are not adjusted on test examples. We choose them in cue-count units so their behavior is inspectable. One evidence or coordination cue contributes about $1/12{=}0.08$, one rubric or planning cue contributes about $1/6{=}0.17$, and one tutoring cue contributes about $1/7{=}0.14$. The moderate threshold $\tau_{\rm mid}=0.35$ therefore requires a real pattern rather than one accidental word: evidence needs about five evidence cues, or four cues plus visible context; rubric needs about three rubric cues, or an explicit rubric field plus one rubric cue; tutoring needs several student-state cues or dialogue plus cue evidence. Planning uses the stricter $\tau_{\rm plan}=0.42$, which means at least three planning cues in this rule set, because a false lesson-planning route changes the whole answer structure. The explicit-rubric bonus $\gamma_{\rm rub}=0.20$ is slightly larger than one rubric cue because a rubric field is a stronger signal than an isolated word, but it is still below $\tau_{\rm mid}$ so a rubric field alone cannot dominate without matching rubric language. Inline context adds $0.08$ to evidence, images add $0.05$ to evidence and $0.03$ to coordination, and dialogue adds $\min(|h|/6,0.50)$ to tutoring, where $|h|$ is the number of dialogue turns; the cap prevents long conversations from overwhelming the current task.
+Here $s_j(x)$ is the final control score for family $j$, and $f_j(x)$ is a field bonus. The constants are fixed router hyperparameters, not probabilities or learned weights. We choose them in cue-count units: one evidence or coordination cue contributes about $1/12{=}0.08$, one rubric or planning cue about $1/6{=}0.17$, and one tutoring cue about $1/7{=}0.14$. Thus $\tau_{\rm mid}$ is set to $0.35$ so a route needs a pattern rather than one accidental word; $\tau_{\rm plan}$ is set to $0.42$ because a false planning route changes the whole answer structure; and $\tau_{\rm fb}$ is set to $0.45$ because fallback retrieval costs an extra pass. The rubric-field bonus $\gamma_{\rm rub}=0.20$ is stronger than one rubric cue but still below $\tau_{\rm mid}$, so the rubric field alone cannot dominate. Inline context adds $0.08$ to evidence, images add $0.05$ to evidence and $0.03$ to coordination, and dialogue adds $\min(|h|/6,0.50)$ to tutoring, capped so long histories do not overwhelm the current task.
 
 The pedagogical regime $R(x)$ is selected in a fixed order:
 \begin{equation}
@@ -158,7 +158,7 @@ G(x)=
 0, & \mathrm{otherwise}.
 \end{cases}
 \end{equation}
-Thus retrieval runs only when the evidence score reaches $\tau_{\rm mid}$ or when the selected regime is evidence-grounded. This choice favors recall for initial grounding: missing needed evidence is more harmful than retrieving one small evidence bundle. A fallback gate is kept for missed evidence cases and uses the stricter $\tau_{\rm fb}=0.45$ because it triggers an additional retrieval-and-tutor pass:
+Thus retrieval runs only when the evidence score reaches $\tau_{\rm mid}$ or when the selected regime is evidence-grounded. This favors recall for initial grounding. A fallback gate handles missed evidence cases with the stricter $\tau_{\rm fb}$:
 \begin{equation}
 G_{\rm fb}(x)=
 \begin{cases}
@@ -197,24 +197,27 @@ z_1=(z_0,p,\ell,u).
 
 \textsc{MARLET} contains retrieval, but retrieval is not the top-level controller and does not require a traditional dense vector database. When $G(x)=1$, each planner query $q_i$ searches a local hybrid text index. For a query $q_i$ and candidate chunk $d$, the base retrieval score is
 \begin{equation}
-\mathrm{base}(q_i,d)=.58\,\mathrm{lex}+.17\,\mathrm{char}+.25\,\mathrm{svd}+\beta .
+\mathrm{base}(q_i,d)=
+w_{\rm lex}\mathrm{lex}+w_{\rm char}\mathrm{char}+w_{\rm svd}\mathrm{svd}+\beta .
 \end{equation}
-Here $\mathrm{lex}$ is word TF--IDF similarity, $\mathrm{char}$ is character $3$--$5$ gram TF--IDF similarity, $\mathrm{svd}$ is similarity in a truncated-SVD latent space, and $\beta$ is a small title/source boost. Candidates from all planner queries are merged, and duplicate chunks keep their highest score.
+Here $\mathrm{lex}$ is word TF--IDF similarity, $\mathrm{char}$ is character $3$--$5$ gram TF--IDF similarity, $\mathrm{svd}$ is truncated-SVD similarity, and $\beta$ is a small title/source boost. The fixed weights $(w_{\rm lex},w_{\rm char},w_{\rm svd})=(0.58,0.17,0.25)$ emphasize lexical evidence while keeping typo robustness and semantic smoothing. Candidates from all planner queries are merged, and duplicate chunks keep their highest score.
 
 The reranker then scores each candidate against the original question:
 \begin{equation}
 \begin{aligned}
-\mathrm{rank}(q,d)=&.55\,\mathrm{base}+.20o_{\rm tok}+.10o_{\rm title}\\
-&+.06m_{\rm phr}+.05o_{\rm num}+.04b_{\rm len}.
+\mathrm{rank}(q,d)=&\alpha_{\rm base}\mathrm{base}+\alpha_{\rm tok}o_{\rm tok}
++\alpha_{\rm title}o_{\rm title}\\
+&+\alpha_{\rm phr}m_{\rm phr}+\alpha_{\rm num}o_{\rm num}
++\alpha_{\rm len}b_{\rm len}.
 \end{aligned}
 \end{equation}
-In this formula, $o_{\rm tok}$ is token overlap with $q$, $o_{\rm title}$ is title-token overlap, $m_{\rm phr}$ is an exact phrase-match flag, $o_{\rm num}$ is numeric overlap, and $b_{\rm len}$ rewards moderate chunk length. The learner summary $\ell$ does not directly change these weights; personalization affects retrieval through the route and planner queries.
+Here $o_{\rm tok}$ is token overlap with $q$, $o_{\rm title}$ is title-token overlap, $m_{\rm phr}$ is an exact phrase-match flag, $o_{\rm num}$ is numeric overlap, and $b_{\rm len}$ rewards moderate chunk length. The $\alpha$ weights are fixed to $(0.55,0.20,0.10,0.06,0.05,0.04)$ in the order shown. The learner summary $\ell$ affects retrieval through the route and planner queries, not these weights.
 
 Evidence packing follows the relevance-diversity tradeoff used in MMR-style selection~\cite{carbonell1998mmr}: the context should be useful, but repeated chunks should not consume the limited evidence budget. For each candidate chunk $d$, \textsc{MARLET} computes
 \begin{equation}
-\mathrm{pack}(d)=0.68\,\mathrm{rank}(q,d)-0.32\,\mathrm{repeat}(d).
+\mathrm{pack}(d)=\lambda\,\mathrm{rank}(q,d)-(1-\lambda)\,\mathrm{repeat}(d).
 \end{equation}
-Here $\mathrm{rank}(q,d)$ is the reranker score above, and $\mathrm{repeat}(d)$ is the largest sentence overlap between $d$ and the chunks already selected. The packer repeatedly adds the remaining chunk with the highest $\mathrm{pack}(d)$ score. Selection stops at $Q=4$ chunks or the $L=6000$ character limit, and the selected chunks form the evidence bundle $D$.
+Here $\mathrm{repeat}(d)$ is the largest sentence overlap between $d$ and selected chunks, and $\lambda{=}0.68$ keeps relevance primary while penalizing duplicate evidence. The packer adds the remaining chunk with the highest $\mathrm{pack}(d)$ score until $Q$ chunks or the $L$ character limit is reached, forming evidence bundle $D$.
 
 \subsection{Tutor Generation and Critic Revision}
 
