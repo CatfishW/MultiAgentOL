@@ -79,21 +79,17 @@ Recent educational work shows that tutoring quality requires more than answer ac
 \section{Methodology}
 \label{sec:methodology}
 
-\textsc{MARLET} turns one educational request into a grounded tutor response. Its design follows three principles: route before retrieval, exchange typed records rather than free-form chat, and retrieve only when the tutoring brief needs external evidence. The flow is: standardize the sample, score routing cues, run active specialists in parallel, merge a brief, retrieve and pack evidence when gated on, serialize one tutor prompt, and run one critic revision if needed.
+\textsc{MARLET} turns one educational request into a grounded tutor response. It is a RAG controller rather than a set of independent answer agents: every intermediate output is converted into context for one final LLM tutor prompt. Its design follows three principles: route before retrieval, exchange typed records rather than free-form chat, and retrieve only when the tutoring brief needs external evidence. The flow is: standardize the entry, score routing cues, run active specialists in parallel, merge their outputs with retrieved evidence, serialize one augmented prompt, and run one critic revision if needed.
 
-\subsection{Input, Output, and Budget}
+\subsection{Input Entry and Prompt Budget}
 
 For one sample, \textsc{MARLET} first standardizes all visible fields into
 \begin{equation}
 x=(q,o,c,h,r,v,m).
 \end{equation}
-Here, $q$ is the student question or task prompt; $o$ is an optional answer-option list; $c$ is optional inline context such as a chapter excerpt; $h$ is the recent dialogue history; $r$ is an optional rubric or answer-criteria list; $v$ is an optional image list; and $m$ stores metadata used for logging or formatting. Empty fields are allowed, so the same representation covers factual questions, grading requests, feedback requests, and planning requests.
+Here, $q$ is the student question or task prompt; $o$ is an optional answer-option list; $c$ is optional inline context such as a chapter excerpt; $h$ is recent dialogue; $r$ is an optional rubric or answer-criteria list; $v$ is an optional image list; and $m$ stores metadata used for logging or formatting. Empty fields are allowed, so the same representation covers factual questions, grading requests, feedback requests, and planning requests.
 
-The pipeline returns
-\begin{equation}
-\mathrm{out}(x)=(y,\mathrm{route},D,\mathrm{cit},\mathrm{log}),
-\end{equation}
-where $y$ is the final tutor answer, $\mathrm{route}$ records the selected pedagogical regime and module switches, $D$ is the final evidence bundle, $\mathrm{cit}$ contains citation identifiers from retrieved chunks, and $\mathrm{log}$ stores trace and cost information. The budget is
+The only student-facing output is the final tutor answer $y$. The route, retrieved evidence bundle $D$, citation identifiers, and cost logs are audit fields. They do not form separate answers. Instead, planner output, learner-state summary, rubric summary, and retrieved chunks are assembled as prompt blocks before the LLM tutor generates $y$. The shared budget is
 \[
 B=(K,Q,L,N),
 \]
@@ -171,7 +167,7 @@ where $D_0$ is the evidence bundle from the first retrieval attempt. If $G_{\rm 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=0.90\textwidth]{figures/MultiAgentMain.png}
-\caption{Main framework of \textsc{MARLET}. The supervisory router scores the sample, assigns the pedagogical regime, and decides whether retrieval is needed before planner, diagnoser, and rubric modules assemble the tutoring brief.}
+\caption{Main framework of \textsc{MARLET}. The router scores the entry, activates specialist modules, and decides whether retrieval is needed; specialist outputs and retrieved evidence are then assembled into one augmented tutor prompt.}
 \label{fig:framework}
 \end{figure*}
 
