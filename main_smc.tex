@@ -104,19 +104,25 @@ where $K$ is the maximum number of planner retrieval queries, $Q$ is the maximum
 \renewcommand{\arraystretch}{0.93}
 \begin{tabular}{p{0.96\columnwidth}}
 \toprule
-\textbf{Input:} standardized entry $x=(q,o,c,h,r,v,m)$, budget $B$, text index $\mathcal{I}$, thresholds $\tau$. \\
-\textbf{Output:} final answer $y$ and audit records $(R,D,\mathrm{citations},\mathrm{cost})$. \\
+\texttt{def MARLET(x, B, index, thresholds):} \\
 \midrule
-1. Build routing blob $b(x)=\mathrm{concat}(q,c,r,h)$ and cue scores $s_j(x)$. \\
-2. Select regime $R\in\{\mathrm{LP},\mathrm{RF},\mathrm{AT},\mathrm{EG}\}$ and switches for retrieval, rubric, critic, and modality. \\
-3. Create base context $z_0=(x,R,G,B)$; launch active specialists in parallel. \\
-4. Planner returns $p=(\mathrm{strategy},P)$, where $P$ contains $q$ plus optional key-term, context-aware, and rubric-aware queries capped at $K$. \\
-5. Diagnoser returns visible learner state $\ell$; rubric module returns explicit criteria or default checklist $u$. \\
-6. Merge typed fields into tutoring brief $z_1=(z_0,p,\ell,u)$. \\
-7. If $G(x)=1$, search $\mathcal{I}$ with each query in $P$, deduplicate chunks, rerank against $q$, and pack at most $Q$ chunks under length limit $L$ to form $D$; else set $D=\emptyset$. \\
-8. Assemble one tutor prompt from $(q,o,h,p,\ell,u,D,c)$ and generate draft $y_0=A_{\rm tutor}(z_1,D)$. \\
-9. If $D=\emptyset$ and $s_{\rm ev}(x)\ge\tau_{\rm fb}$, retrieve once with raw $q$, rebuild the prompt, and regenerate $y_0$. \\
-10. If the critic switch is on, revise once for missing citations, uncovered criteria, or poor pedagogy; otherwise return $y_0$. \\
+\quad \texttt{q, o, c, h, r, v, m = x} \\
+\quad \texttt{scores = cue\_scores(concat(q, c, r, h))} \\
+\quad \texttt{R, switches = route(scores, r, v, thresholds)} \\
+\quad \texttt{z0 = Context(x=x, regime=R, budget=B)} \\
+\quad \texttt{tasks = \{planner(z0), diagnoser(z0)\}} \\
+\quad \texttt{if switches.rubric: tasks.add(rubric\_agent(z0))} \\
+\quad \texttt{p, ell, u = run\_parallel(tasks)} \\
+\quad \texttt{P = p.queries[:B.K]; z1 = merge(z0, p, ell, u)} \\
+\quad \texttt{D = []} \\
+\quad \texttt{if switches.retrieve:} \\
+\quad\quad \texttt{D = pack(rerank(dedup(search(index, P)), q), B.Q, B.L)} \\
+\quad \texttt{y0 = tutor(prompt(q, o, h, p, ell, u, D, c))} \\
+\quad \texttt{if not D and scores.evidence >= thresholds.fallback:} \\
+\quad\quad \texttt{D = pack(rerank(search(index, [q]), q), B.Q, B.L)} \\
+\quad\quad \texttt{y0 = tutor(prompt(q, o, h, p, ell, u, D, c))} \\
+\quad \texttt{y = critic(y0, z1, D) if switches.critic else y0} \\
+\quad \texttt{return y, \{route=R, evidence=D, citations=ids(D)\}} \\
 \bottomrule
 \end{tabular}
 \end{table}
