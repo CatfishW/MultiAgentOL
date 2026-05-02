@@ -157,7 +157,7 @@ R(x)=
 \end{equation}
 The order follows this generic constraint strength. Sequence changes the whole response, explicit criteria constrain evaluation, learner state shapes delivery, and evidence is the safe fallback when the request does not clearly require one of the first three prompt shapes.
 
-The retrieval gate implements the similar selective-retrieval intuition studied in adaptive RAG: evidence is requested when the sample appears to need external grounding rather than being forced for every input~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}. The gate is
+Next, the supervisor uses a \emph{retrieval gate}: a binary control for whether external evidence enters the final tutor prompt. Following selective-retrieval work, the gate opens only when outside grounding is needed~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}:
 \begin{equation}
 G(x)=
 \begin{cases}
@@ -165,7 +165,7 @@ G(x)=
 0, & \mathrm{otherwise}.
 \end{cases}
 \end{equation}
-Thus retrieval runs only when the evidence score reaches $\tau_{\rm mid}$ or when the selected regime is evidence-grounded. This favors recall for initial grounding. A fallback gate handles missed evidence cases with the stricter $\tau_{\rm fb}$:
+Thus $G(x)=1$ runs retrieval; $G(x)=0$ builds the same prompt without external chunks. If the first evidence bundle is empty, a stricter fallback gate may retry:
 \begin{equation}
 G_{\rm fb}(x)=
 \begin{cases}
