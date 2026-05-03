@@ -54,7 +54,7 @@ Classical RAG can include explicit state text when supplied, but appending user 
 
 Therefore, we introduce \textsc{MARLET} (Multi-Agent Retrieval with Lightweight Evidence and Task-State Control), a configurable RAG controller for structured context construction. Instead of letting the retriever act as the top-level controller, a supervisory router chooses the response regime and retrieval gate; planner, state, and criteria specialists prepare typed context in parallel; bounded local tools inspect resources; and all outputs are reassembled with evidence into one generator prompt.
 
-The experiments validate the framework in educational tutoring rather than present a model leaderboard. We compare with classical RAG and Agentic RAG under shared backbone, corpus, reranker, response cap, generator, and critic. The results show that the same generator scores higher when fed context assembled by \textsc{MARLET}, with lower resource cost in several settings.
+In this work, we validate the framework in educational tutoring rather than present a model leaderboard. We compare with classical RAG and Agentic RAG under shared backbone, corpus, reranker, response cap, generator, and critic. The results show that the same generator scores higher when fed context assembled by \textsc{MARLET}, with lower resource cost in several settings.
 
 \noindent\textbf{Contributions.} (i) We propose \textsc{MARLET}, a multi-agent retrieval framework with routing, specialist context construction, bounded tools, conditional retrieval, generation, and critique. (ii) We formalize transparent training-free controls over task state, answer criteria, and external evidence. (iii) We instantiate the framework for educational tutoring and validate it against classical RAG and Agentic RAG under shared infrastructure.
 
@@ -71,8 +71,6 @@ For educational agentic works, systems such as AgentTutor assess learners, maint
 
 \textsc{MARLET} turns one request into a grounded response by treating RAG as coordinated context construction. Every intermediate output becomes context for one final LLM prompt. Its design integrates three principles: route before retrieval, exchange typed records among LLM specialists, and retrieve evidence only after the response brief specifies what should be searched.
 
-% The framework is configured through cue lexicons, default criteria, tools, and corpus resources; in this paper those components are instantiated for education. The flow remains standardize, route, run parallel specialists, execute bounded tools, retrieve conditionally, assemble one prompt, and critique once.
-
 As a running example, consider a request that includes a question, a prior exchange showing confusion, and a grading rule. Classical RAG can embed all of this text, but the retrieval query must then represent topic, user state, and judgment criteria at once. MARLET first separates them: the route decides which constraint should dominate the answer, specialists fill typed slots for plan, state, and criteria, retrieval searches only the planned intents when needed, and prompt assembly puts all slots plus evidence into one generator prompt.
 
 \subsection{Input Entry and Inference Caps}
@@ -85,7 +83,7 @@ Here, $q$ is the question or task; $o$ answer options; $c$ inline context; $h$ r
 
 The only user-facing output is answer $y$. Internally, MARLET keeps a route record, evidence bundle $D$, tool observations $T$, and citations. Planner output, state summary, criteria summary, $T$, and $D$ become prompt blocks. Caps keep inference bounded: $K$ for planner/retrieval queries, $Q$ for chunks/tool calls, $L$ for evidence length, and $N$ for response tokens.
 
-The core design choice is to avoid asking one retrieval query to carry every constraint. MARLET instead fills three typed slots. The \emph{planner} writes $p=(a,P)$, where $a$ is an operating strategy and $P$ is a capped list of searchable intents. The \emph{state diagnoser} writes $\ell$, a visible-state summary inferred only from $q$ and $h$. The \emph{criteria analyst} writes $u$, preserving explicit criteria $r$ or supplying a short correctness/clarity/evidence/actionability checklist. This separates search intent, task state, and answer requirements~\cite{liu2026agenttutor,borchers2025adaptivity}.
+With the core intuition to avoid asking one retrieval query to carry every constraint, MARLET instead fills three typed slots. The \emph{planner} writes $p=(a,P)$, where $a$ is an operating strategy and $P$ is a capped list of searchable intents. The \emph{state diagnoser} writes $\ell$, a visible-state summary inferred only from $q$ and $h$. The \emph{criteria analyst} writes $u$, preserving explicit criteria $r$ or supplying a short correctness/clarity/evidence/actionability checklist. This separates search intent, task state, and answer requirements~\cite{liu2026agenttutor,borchers2025adaptivity}.
 
 \subsection{Supervisor Routing}
 
