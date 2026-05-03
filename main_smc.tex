@@ -73,6 +73,8 @@ For educational agentic works, systems such as AgentTutor assess learners, maint
 
 % The framework is configured through cue lexicons, default criteria, tools, and corpus resources; in this paper those components are instantiated for education. The flow remains standardize, route, run parallel specialists, execute bounded tools, retrieve conditionally, assemble one prompt, and critique once.
 
+As a running example, consider a request that includes a question, a prior exchange showing confusion, and a grading rule. Classical RAG can embed all of this text, but the retrieval query must then represent topic, user state, and judgment criteria at once. MARLET first separates them: the route decides which constraint should dominate the answer, specialists fill typed slots for plan, state, and criteria, retrieval searches only the planned intents when needed, and prompt assembly puts all slots plus evidence into one generator prompt.
+
 \subsection{Input Entry and Inference Caps}
 
 For one sample, \textsc{MARLET} first standardizes all visible fields into
@@ -87,7 +89,7 @@ The core design choice is to avoid asking one retrieval query to carry every con
 
 \subsection{Supervisor Routing}
 
-The supervisor begins with a routing blob:
+The supervisor begins with a routing string:
 \begin{equation}
 b(x)=\mathrm{concat}(q,c,r,h),
 \end{equation}
@@ -144,7 +146,7 @@ MARLET then builds the brief through LLM-backed specialist agents inspired by to
 
 The tools are side-effect-free local functions: key-term extraction, inline-context inspection, dialogue-state inspection, criteria listing, and corpus search. Specialists may request these tools in their JSON output, and the coordinator also provides a small default observation to each specialist. Tool observations $T$ are capped by $Q$ and inserted as prompt context. This allows the agents to inspect a local resource before writing while keeping execution bounded.
 
-The coordinator spreads out $(x,R,G)$ to the planner, state diagnoser, and criteria analyst in parallel; each agent writes one typed record and optional tool requests; the coordinator validates those requests, executes only allowed local tools, caps the observations, and replaces malformed records with deterministic fallbacks. It then fans in the records by merging $(R,G,p,\ell,u,T)$ into one response brief. The specialists therefore communicate through the coordinator's typed records, not by open-ended chat with each other. After this merge, $G$ selects the next edge in the graph: $G=1$ sends planner intents $P$ to retrieval to build evidence bundle $D$, while $G=0$ leaves $D$ empty and sends the brief directly to prompt assembly. In both cases, one final generator prompt receives explicit blocks for plan, visible state, criteria, tool observations, and evidence instead of asking a single query string to carry every constraint.
+The coordinator dispatches $(x,R,G)$ to the planner, state diagnoser, and criteria analyst in parallel; each agent writes one typed record and optional tool requests; the coordinator validates those requests, executes only allowed local tools, caps the observations, and replaces malformed records with deterministic fallbacks. It then merges $(R,G,p,\ell,u,T)$ into one response brief. The specialists therefore communicate through the coordinator's typed records, not by open-ended chat with each other. After this merge, the gate determines the next step: $G=1$ sends planner intents $P$ to retrieval to build evidence bundle $D$, while $G=0$ leaves $D$ empty and sends the brief directly to prompt assembly. In both cases, one final generator prompt receives explicit blocks for plan, visible state, criteria, tool observations, and evidence instead of asking a single query string to carry every constraint.
 
 \subsection{Conditional Retrieval and Evidence Assembly}
 
