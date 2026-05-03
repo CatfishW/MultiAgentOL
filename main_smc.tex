@@ -83,9 +83,9 @@ x=(q,o,c,h,r,v).
 \end{equation}
 Here, $q$ is the question or task; $o$ answer options; $c$ inline context; $h$ recent interaction history; $r$ explicit criteria; and $v$ images. Empty fields are allowed, so the same representation covers factual questions, assessment, feedback, and planning.
 
-The only user-facing output is answer $y$. Internally, MARLET keeps the route choice, retrieval decision, evidence bundle $D$, and tool observations $T$. Planner output, state summary, criteria summary, $T$, and $D$ become prompt blocks. Caps keep inference bounded: $K$ for planner/retrieval queries, $Q$ for chunks/tool calls, $L$ for evidence length, and $N$ for response tokens.
+The only user-facing output is answer $y$. Internally, MARLET keeps the route choice, retrieval decision, evidence bundle $D$, and tool observations $T$. Planner strategy, state summary, criteria summary, $T$, and $D$ become prompt blocks. Caps keep inference bounded: $K$ for planner/retrieval queries, $Q$ for chunks/tool calls, $L$ for evidence length, and $N$ for response tokens.
 
-The core design choice is to avoid asking one retrieval query to carry every constraint. MARLET instead fills three structured slots. The \emph{planner} writes $p=(a,P)$, where $a$ is a short answer strategy and $P$ is a capped list of search queries that tell the retriever what to look for. The \emph{state diagnoser} writes state summary $\ell$, inferred only from $q$ and $h$. The \emph{criteria analyst} writes criteria summary $u$, preserving explicit criteria $r$ or supplying a short correctness/clarity/evidence/actionability checklist. This separates search, task state, and answer requirements~\cite{liu2026agenttutor,borchers2025adaptivity}.
+The core design choice is to avoid asking one retrieval query to carry every constraint. MARLET instead fills three structured slots. The \emph{planner} writes $p=(a,P)$. Here $a$ is a short operating strategy for the final answer writer, while $P=\{p_1,\ldots,p_m\}$, $m\le K$, is a list of short corpus-search queries. Thus the planner is neither the retriever nor the final answerer: it decides how the answer should be organized and what should be searched if retrieval opens. For example, a request that asks for feedback on a solution may yield a strategy such as ``find the error, compare with the criterion, give one next step,'' plus search queries for the expected solution rule and the stated criterion. The \emph{state diagnoser} writes state summary $\ell$, inferred only from $q$ and $h$. The \emph{criteria analyst} writes criteria summary $u$, preserving explicit criteria $r$ or supplying a short correctness/clarity/evidence/actionability checklist. This separates search, task state, and answer requirements~\cite{liu2026agenttutor,borchers2025adaptivity}.
 
 \subsection{Supervisor Routing}
 
@@ -142,15 +142,15 @@ where $D_0$ is the evidence bundle from the first retrieval attempt.
 
 After routing, the coordinator has two control signals, not an answer. The regime $R$ decides which constraint receives prompt priority: ordered steps for PL, evaluation requirements for CF, user/task adaptation for AR, or source support for EG. Thus $R$ changes the instructions sent to the specialists and the order of blocks in the final prompt. The gate $G$ decides whether the brief should be connected to the corpus retriever. If $G=1$, MARLET will search external resources after the specialists finish; if $G=0$, it will assemble the prompt from the brief, tool observations, and inline context without adding retrieved chunks.
 
-MARLET then builds the brief through LLM-backed specialist agents inspired by tool-using and multi-agent systems~\cite{yao2023react,wu2024autogen}. Each active specialist receives the same standardized entry $x$, the regime $R$, the gate $G$, and a bounded tool set $\mathcal{U}$. The planner returns $p=(a,P)$, where $a$ is a response strategy and $P$ is a capped list of search queries. $P$ is the bridge from agents to retrieval: it is consumed by the retriever only when $G=1$; otherwise it remains a plan block for the generator. The state diagnoser returns $\ell$, which tells the generator and critic what visible user/task state should shape explanation depth and tone. The criteria analyst returns $u$, which tells the generator and critic what requirements the answer must satisfy; when no explicit criteria are present and $R\ne\mathrm{CF}$, $u$ is filled by a default checklist rather than by an extra LLM call.
+MARLET then builds the brief through LLM-backed specialist agents inspired by tool-using and multi-agent systems~\cite{yao2023react,wu2024autogen}. Each active specialist receives the same standardized entry $x$, the regime $R$, the gate $G$, and a bounded tool set $\mathcal{U}$. The planner returns $p=(a,P)$: $a$ becomes the operating-plan block for generation, and $P$ is held as retrieval input. This is the bridge from agents to retrieval: $P$ is consumed by the retriever only when $G=1$; when $G=0$, no corpus search is run and the generator only sees the strategy $a$ with the other context blocks. The state diagnoser returns $\ell$, which tells the generator and critic what visible user/task state should shape explanation depth and tone. The criteria analyst returns $u$, which tells the generator and critic what requirements the answer must satisfy; when no explicit criteria are present and $R\ne\mathrm{CF}$, $u$ is filled by a default checklist rather than by an extra LLM call.
 
 The tools are side-effect-free local functions: key-term extraction, inline-context inspection, dialogue-state inspection, criteria listing, and corpus search. Specialists may request these tools in their JSON output, and the coordinator also provides a small default observation to each specialist. Tool observations $T$ are capped by $Q$ and inserted as prompt context. This allows the agents to inspect a local resource before writing while keeping execution bounded.
 
-The coordinator dispatches $(x,R,G)$ to the planner, state diagnoser, and criteria analyst in parallel; each agent writes one structured record and optional tool requests; the coordinator validates those requests, executes only allowed local tools, caps the observations, and replaces malformed records with deterministic fallbacks. It then merges $(R,G,p,\ell,u,T)$ into one response brief. The specialists therefore communicate through the coordinator's structured records, not by open-ended chat with each other. After this merge, the gate determines the next step: $G=1$ sends planner queries $P$ to retrieval to build evidence bundle $D$, while $G=0$ leaves $D$ empty and sends the brief directly to prompt assembly. In both cases, one final generator prompt receives explicit blocks for plan, visible state, criteria, tool observations, and evidence instead of asking a single query string to carry every constraint.
+The coordinator dispatches $(x,R,G)$ to the planner, state diagnoser, and criteria analyst in parallel; each agent writes one structured record and optional tool requests; the coordinator validates those requests, executes only allowed local tools, caps the observations, and replaces malformed records with deterministic fallbacks. It then merges $(R,G,a,\ell,u,T)$ into one response brief while keeping $P$ as the candidate retrieval queries. The specialists therefore communicate through the coordinator's structured records, not by open-ended chat with each other. After this merge, the gate determines the next step: $G=1$ sends $P$ to retrieval to build evidence bundle $D$, while $G=0$ leaves $D$ empty and sends the brief directly to prompt assembly. In both cases, one final generator prompt receives explicit blocks for strategy, visible state, criteria, tool observations, and evidence instead of asking a single query string to carry every constraint.
 
 \subsection{Conditional Retrieval and Evidence Assembly}
 
-After the LLM specialists produce the response brief, the coordinator uses the gate $G$ to decide whether external evidence should enter the final prompt. If $G=0$, the generator receives the plan, visible state, criteria, and tool observations without retrieved chunks. If $G=1$, the planner queries $P$ are sent to the corpus-search tool, while dialogue, criteria, and state summaries remain separate prompt blocks. This keeps retrieval focused on search while still preserving the other constraints for generation.
+After the LLM specialists produce the response brief, the coordinator uses the gate $G$ to decide whether external evidence should enter the final prompt. If $G=0$, the generator receives the strategy, visible state, criteria, and tool observations without retrieved chunks. If $G=1$, the planner queries $P$ are sent to the corpus-search tool, while dialogue, criteria, and state summaries remain separate prompt blocks. This keeps retrieval focused on search while still preserving the other constraints for generation.
 
 The retrieval path has four bounded steps:
 \begin{equation}
@@ -160,13 +160,13 @@ where $\mathcal{I}$ is the configured corpus index, \textsc{Search} retrieves ca
 
 \subsection{Generation and Critic Revision}
 
-This is where retrieval and agent outputs converge: $(R,G,p,\ell,u,T)$ supplies route, plan, state, criteria, and tool-observation fields, while $D$ supplies compact cited evidence. The final prompt contains task fields, response brief, evidence or inline context, and output requirements. The generator is the LLM-driven answer writer:
+This is where retrieval and agent outputs converge: $(R,G,a,\ell,u,T)$ supplies route, strategy, state, criteria, and tool-observation fields, while $D$ supplies compact cited evidence. The final prompt contains task fields, response brief, evidence or inline context, and output requirements. The generator is the LLM-driven answer writer:
 \begin{equation}
-y_0=A_{\rm gen}(q,o,h,p,\ell,u,T,D,c).
+y_0=A_{\rm gen}(q,o,h,a,\ell,u,T,D,c).
 \end{equation}
-Its prompt contains $q$, optional answer options $o$, recent interaction history $h$, state summary $\ell$, plan $p$, criteria summary $u$, tool observations $T$, and either retrieved evidence $D$ or inline context $c$. The generator is instructed by the task configuration to be correct, useful, concise but not terse, include a next step when appropriate, and cite retrieved evidence with document markers.
+Its prompt contains $q$, optional answer options $o$, recent interaction history $h$, state summary $\ell$, strategy $a$, criteria summary $u$, tool observations $T$, and either retrieved evidence $D$ or inline context $c$. The generator is instructed by the task configuration to be correct, useful, concise but not terse, include a next step when appropriate, and cite retrieved evidence with document markers.
 
-The critic performs one bounded revision pass. It checks for missing citation markers when $D$ is nonempty, uncovered criteria from $r$, or a response style that conflicts with the inferred state. If no issue is found, $y=y_0$; otherwise the critic rewrites once using $(y_0,q,h,p,\ell,u,D,r)$ and the revised $y$ becomes the final answer.
+The critic performs one bounded revision pass. It checks for missing citation markers when $D$ is nonempty, uncovered criteria from $r$, or a response style that conflicts with the inferred state. If no issue is found, $y=y_0$; otherwise the critic rewrites once using $(y_0,q,h,a,\ell,u,D,r)$ and the revised $y$ becomes the final answer.
 
 \begin{center}
 \centering
@@ -193,12 +193,12 @@ The critic performs one bounded revision pass. It checks for missing citation ma
 11: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},P)),q),Q,L)$\\
 12: & \textbf{end if}\\
 13: & $D_0\leftarrow D$\\
-14: & $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,p,\ell,u,T,D,c),N)$\\
+14: & $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,a,\ell,u,T,D,c),N)$\\
 15: & \textbf{if} $G_2(x)=1$ \textbf{then}\\
 16: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},[q])),q),Q,L)$\\
-17: & \quad $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,p,\ell,u,T,D,c),N)$\\
+17: & \quad $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,a,\ell,u,T,D,c),N)$\\
 18: & \textbf{end if}\\
-19: & $y\leftarrow\mathrm{CriticOnce}(y_0,q,h,p,\ell,u,D,r)$\\
+19: & $y\leftarrow\mathrm{CriticOnce}(y_0,q,h,a,\ell,u,D,r)$\\
 20: & \textbf{return} $y,(R,G,p,\ell,u,T,D)$\\
 \bottomrule
 \end{tabular}
