@@ -99,7 +99,7 @@ s_j(x)=\frac{M_j(x)}{|W_j|},
 \end{equation}
 where $|W_j|$ is the cue-family size. Thresholds are fixed hyperparameters, not probabilities: $\tau_{\rm mid}$ requires repeated cues, $\tau_{\rm plan}$ is stricter because planning changes response structure, and $\tau_2$ permits retry only for strong evidence cues. Porting mainly replaces $W_j$ and default criteria.
 
-The supervisor then chooses a response regime, a prompt-priority decision made before retrieval. The four regimes are planning (PL), criteria feedback (CF), adaptive response (AR), and evidence grounding (EG). PL reserves space for sequence and dependencies; CF for evaluation rules; AR for user/task state; and EG for source evidence. Because needs can overlap, $R(x)$ is selected by
+The supervisor then chooses a response regime, a prompt-priority decision made before retrieval. The regimes are designed around four common ways a grounded answer can fail before generation: it may need an ordered procedure, an explicit standard for judgment, adaptation to visible user state, or source-backed evidence. Planning (PL) is used when the answer structure itself is the main constraint, such as when steps, dependencies, or subgoals must be organized before evidence is inserted. Criteria feedback (CF) is used when correctness depends on a rubric, grading rule, or stated requirement; here the answer must first know what it is being judged against. Adaptive response (AR) is used when the same content should be delivered differently because of visible user/task state. Evidence grounding (EG) is the default regime when no stronger structural constraint is detected, because the safest action is then to ground the response in source material. Thus PL, CF, AR, and EG are not task labels; they are prompt-allocation priorities. Because needs can overlap, $R(x)$ is selected by
 \begin{equation}
 R(x)=
 \begin{cases}
@@ -109,7 +109,7 @@ R(x)=
 \mathrm{EG}, & \mathrm{otherwise}.
 \end{cases}
 \end{equation}
-The order reflects constraint strength: sequence changes response structure, criteria constrain evaluation, state shapes delivery, and evidence is the default grounding route.
+The priority order is intentional: sequence first sets the answer skeleton, criteria then constrain evaluation, state shapes the delivery, and evidence remains the default grounding route when no stronger prompt structure is required.
 
 Next, the supervisor uses a \emph{retrieval gate}: a binary control for whether external evidence enters the final prompt. Inspired by selective-retrieval research, MARLET integrates this idea as a prompt-allocation control that opens only when outside grounding is needed~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}:
 \begin{equation}
