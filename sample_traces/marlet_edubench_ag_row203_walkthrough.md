@@ -142,6 +142,162 @@ Consequence:
 These scores determine or influence R, G, rubric activation, retrieval activation, critic activation, and architecture selection.
 ```
 
+### How the Cue Scores Are Computed
+
+The cue scores are lightweight routing features, not LLM judgments. The code path is:
+
+```text
+1. Build routing text b from q, c, r, and h.
+2. Lowercase b and collapse repeated whitespace.
+3. For each cue family, count how many cue phrases appear anywhere in b.
+4. Divide the matched cue count by the number of cue phrases in that family.
+5. Add small explicit-signal bonuses when applicable.
+6. Clip every score to at most 1.0.
+```
+
+Code-faithful pseudocode:
+
+```python
+blob = normalize_text(question + inline_context + criteria_text + dialogue_history)
+
+base_score = matched_cue_count(blob, cue_family) / len(cue_family)
+
+evidence = base_score(EVIDENCE_CUES)
+coordination = base_score(COORDINATION_CUES)
+rubric = base_score(RUBRIC_CUES) + (0.20 if explicit_rubric_exists else 0.0)
+planning = base_score(PLANNING_CUES)
+adaptation = base_score(ADAPTATION_CUES) + min(dialogue_turn_count / 6.0, 0.50)
+
+if inline_context_exists:
+    evidence += 0.08
+if images_exist:
+    evidence += 0.05
+    coordination += 0.03
+if optional_dataset_priors_are_enabled:
+    add the configured prior bonus for that dataset/regime
+
+scores = clip_each_score_to_1(scores)
+```
+
+Important implementation detail: cue matching is substring matching. A cue counts once if it appears anywhere in the normalized routing text, even if it appears many times. Multi-word cues such as `lesson plan` and `supporting facts` must appear as that phrase. Because matching is substring-based, `personalized` matches the cue `personalize`, and `explanation` contains the cue `plan`. This makes the router fast and transparent, but it also means the scores are routing heuristics rather than semantic classifiers.
+
+The full cue families used by the router are:
+
+| Family | Cue phrases |
+|---|---|
+| Evidence | `cite`, `citation`, `source`, `evidence`, `supporting facts`, `reference`, `grounded`, `retrieval`, `document`, `chapter`, `lecture`, `verification` |
+| Coordination | `user`, `profile`, `state`, `context`, `criteria`, `constraint`, `workflow`, `dependency`, `rubric`, `feedback`, `student`, `misconception`, `hint`, `next step`, `lesson plan`, `study plan`, `adaptive`, `scaffold`, `dialogue`, `pedagog` |
+| Rubric | `rubric`, `criterion`, `criteria`, `score`, `feedback`, `comment` |
+| Planning | `plan`, `sequence`, `schedule`, `workflow`, `roadmap`, `steps`, `next steps`, `lesson`, `curriculum`, `study schedule`, `exercise plan` |
+| Adaptation | `user`, `profile`, `beginner`, `expert`, `personalize`, `adapt`, `confused`, `attempted`, `hint`, `misconception`, `student`, `explain`, `teach`, `tutor` |
+
+Exact cue matches in this sample:
+
+| Score | Matched cues | Arithmetic | Final score |
+|---|---|---:|---:|
+| `evidence` | `cite`, `source`, `evidence`, `reference`, `retrieval`, `document`, `chapter`, `lecture`, `verification` | `9 / 12` | `0.75` |
+| `coordination` | `feedback`, `student` | `2 / 20` | `0.10` |
+| `rubric` | `score`, `feedback` | `(2 / 6) + 0.20 explicit-rubric bonus` | `0.5333` |
+| `planning` | `plan` | `1 / 11` | `0.0909` |
+| `adaptation` | `personalize`, `student`, `explain` | `(3 / 14) + 0 dialogue-history bonus` | `0.2143` |
+| `tutoring` | same value as adaptation in this code path | copied from `adaptation` | `0.2143` |
+
+Why the evidence score is high here:
+
+```text
+The demo-only evidence sentence contains many evidence-family words:
+cite, source, evidence, reference, document, chapter, lecture, verification, and retrieval.
+That gives 9 matched evidence cues out of 12 total evidence cues.
+```
+
+Why the rubric score is high here:
+
+```text
+The text contains score and feedback, so the base rubric score is 2/6.
+The standardized input also has an explicit rubric list r, so the router adds 0.20.
+Final rubric score = 0.3333 + 0.20 = 0.5333.
+```
+
+Why the planning score is low:
+
+```text
+Only one planning cue is matched. In this trace, the cue is plan, which appears by substring inside explanation. No sequence, schedule, workflow, roadmap, steps, curriculum, or study-schedule cues appear.
+```
+
+Why the adaptation score is moderate:
+
+```text
+The text contains explain, student, and personalized. These match explain, student, and personalize.
+There is no dialogue history, so the dialogue-history bonus is 0.
+```
+
+Signals that did not affect this trace:
+
+| Signal | Code behavior | Value in this trace |
+|---|---|---|
+| Inline context bonus | Adds `0.08` to evidence when `c` is nonempty. | Not used because `c=None`. |
+| Image bonus | Adds `0.05` to evidence and `0.03` to coordination when images exist. | Not used because `v=[]`. |
+| Dialogue-history bonus | Adds `min(len(h)/6, 0.50)` to adaptation. | Not used because `h=[]`. |
+| Dataset prior bonus | Optional prior can add evidence, rubric, adaptation, coordination, or planning bias by dataset. | Not used because experiment config sets `router.use_dataset_priors=false`. |
+
+Mini examples for how scores would change:
+
+| Example request fragment | Main cue matches | Likely routing effect |
+|---|---|---|
+| `Cite the source document and verify the answer with evidence.` | `cite`, `source`, `document`, `verification`, `evidence` | Higher evidence score; retrieval gate likely opens. |
+| `Score this answer using the rubric and give feedback comments.` | `score`, `rubric`, `feedback`, `comment` | Higher rubric score; criteria/rubric agent likely runs and `R` may become `CF`. |
+| `Create a study schedule with steps and a sequence of exercises.` | `study schedule`, `steps`, `sequence`, `exercise plan` if phrased that way | Higher planning score; `R` may become `PL` when planning dominates. |
+| `I am a beginner and confused; tutor me with a hint.` | `beginner`, `confused`, `tutor`, `hint` | Higher adaptation score; `R` may become `AR`, making visible state more important. |
+| `Use the user profile, dialogue context, workflow constraints, and rubric.` | `user`, `profile`, `dialogue`, `context`, `workflow`, `constraint`, `rubric` | Higher coordination score; can shift the architecture toward agentic or multi-agent handling. |
+
+After scoring, the router uses the scores in three different ways:
+
+```text
+Architecture selection:
+- If evidence >= evidence_threshold and coordination < 0.35, select classical RAG.
+- Else if evidence >= 0.35 and coordination >= coordination_threshold, select agentic RAG.
+- Else if coordination >= 0.55 and evidence < 0.28, select non-retrieval multi-agent.
+- Otherwise select hybrid_fast / MARLET.
+
+Regime selection:
+- If an explicit regime_hint exists, use it first.
+- Else PL wins if planning >= rubric, planning >= adaptation, and planning >= plan threshold.
+- Else CF wins if rubric >= adaptation and rubric >= mid threshold.
+- Else AR wins if adaptation >= mid threshold.
+- Else EG is the default.
+
+Retrieval gate:
+- In MARLET, retrieval opens when evidence score clears the hybrid retrieval gate or when the selected regime is EG.
+- In this trace, evidence=0.75 is above the 0.35 gate, so G=true.
+```
+
+Threshold values in the current experiment configuration:
+
+| Threshold/config | Value | Used for |
+|---|---:|---|
+| `evidence_threshold` | `0.52` | Classical RAG architecture branch when coordination is low. |
+| `coordination_threshold` | `0.50` | Agentic RAG architecture branch when evidence is also high. |
+| `hybrid_retrieval_gate` | `0.35` | Opens retrieval inside MARLET. |
+| `hybrid_retrieval_fallback` | `0.45` | Runs one raw-question fallback retrieval if the first MARLET retrieval returns no chunks. |
+| `plan threshold` | `0.42` | Allows `PL` only when planning is clearly strong. |
+| `mid threshold` | `0.35` | Allows `CF` or `AR` when criteria/adaptation cues are strong enough. |
+
+Applying those rules to this sample:
+
+```text
+Architecture:
+evidence = 0.75 >= 0.52, but coordination = 0.10 < 0.35 would normally make a low-coordination evidence-heavy request classical RAG under the generic architecture router.
+This walkthrough intentionally studies the MARLET mechanism, so the run uses the MARLET / hybrid_fast pipeline. The key route consequence inside MARLET is therefore the retrieval gate G, not the generic architecture-family choice.
+
+Regime:
+The standardized EduBench example carries an adaptive_tutoring regime hint.
+Because regime_hint is checked before score-only selection, R=AR even though adaptation=0.2143 is below the 0.35 mid threshold.
+
+Retrieval:
+Inside MARLET, evidence = 0.75 >= hybrid_retrieval_gate 0.35.
+Therefore G=true and retrieval runs with planner queries.
+```
+
 ## 4. Consequences of Each Score
 
 The scores are not final answer scores. They are routing/control signals. Each score can affect regime selection, retrieval, module activation, or prompt content.
@@ -149,7 +305,7 @@ The scores are not final answer scores. They are routing/control signals. Each s
 | Score | Actual value | What it measures | Code-level consequence | Consequence in this sample |
 |---|---:|---|---|---|
 | `evidence` | `0.75` | Whether the request asks for sources, citations, documents, grounding, verification, or retrieval. | In MARLET, retrieval opens when `evidence >= hybrid_retrieval_gate` or when `R=EG`. The default gate is `0.35`. If no chunks are retrieved, a fallback retrieval can run when evidence is above the fallback threshold. | `0.75 >= 0.35`, so `G=true`. The retriever runs, four Magna Carta chunks enter the final prompt, and the generator is asked to cite `[doc_id]` markers. |
-| `coordination` | `0.10` | Whether the request appears to need multi-step coordination, constraints, workflow, dialogue state, or dependency handling. | Under router architecture selection, high coordination can push toward agentic or non-retrieval multi-agent pipelines. Low coordination does not add extra coordination pressure. | Low coordination means the sample is not treated as a complex workflow. The MARLET run still uses planner/diagnoser/rubric because those are part of the selected `hybrid_fast` pipeline and route flags. |
+| `coordination` | `0.10` | Whether the request appears to need multi-step coordination, constraints, workflow, dialogue state, or dependency handling. | Under generic architecture selection, high coordination can push toward agentic or non-retrieval multi-agent pipelines. Low coordination does not add extra architecture-selection pressure. | Low coordination means the sample is not treated as a complex workflow by the generic router. The walkthrough still uses MARLET so we can inspect its retrieval and prompt-assembly path. |
 | `rubric` | `0.5333` | Whether the request involves scoring, criteria, feedback, comments, or explicit requirements. | If no regime hint overrides it, high rubric score can select `CF` when it dominates adaptation and clears the mid threshold. Independently, `use_rubric_agent=true` when explicit rubric exists or `R=CF`. | The rubric score is high and explicit criteria exist, so `use_rubric_agent=true`. The rubric agent summarizes grading criteria, and the final prompt includes an `Answer criteria` block. |
 | `planning` | `0.0909` | Whether the request asks for a plan, sequence, schedule, roadmap, lesson plan, or ordered steps. | If no regime hint overrides it, a high planning score can select `PL` when it dominates rubric/adaptation and clears the plan threshold. `PL` changes the planner's strategy toward sequencing and usually enables critique. | The planning score is low, so this sample does not become `PL`. The planner still runs because MARLET always builds a brief, but it writes an adaptive/evidence-aware strategy rather than a lesson sequence. |
 | `adaptation` | `0.2143` | Whether the request needs visible user/task-state adaptation, such as learner level, misconception, prior attempt, hint, or personalized explanation. | If no regime hint overrides it, adaptation can select `AR` when it clears the mid threshold. `AR` makes state-aware response construction central and contributes to critic activation. | The adaptation score alone is below the usual mid threshold, but the EduBench example carries an adaptive tutoring regime hint. The final selected regime is therefore `AR/adaptive_tutoring`. |
@@ -192,7 +348,7 @@ Code naming:
 | `AR` | `adaptive_tutoring` | Visible user/task-state adaptation should dominate. |
 | `EG` | `evidence_grounded_reasoning` | Evidence grounding should dominate. |
 
-Why `R=AR` here: the example carries an EduBench adaptive-tutoring regime hint, so the code uses that hint before applying score-only regime selection. The cue scores still matter because they open retrieval and activate rubric/critic behavior.
+Why `R=AR` here: the example carries an EduBench adaptive-tutoring regime hint, so the code uses that hint before applying score-only regime selection. The cue scores still matter because the evidence score opens retrieval, and the explicit rubric plus regime flags determine whether rubric and critic behavior are used.
 
 Why `G=1` here: the evidence score is `0.75`, which is above the retrieval gate threshold.
 
