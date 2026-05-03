@@ -85,41 +85,6 @@ The only user-facing output is answer $y$. Internally, MARLET keeps a route reco
 
 The core design choice is to avoid asking one retrieval query to carry every constraint. MARLET instead fills three typed slots. The \emph{planner} writes $p=(a,P)$, where $a$ is an operating strategy and $P$ is a capped list of searchable intents. The \emph{state diagnoser} writes $\ell$, a visible-state summary inferred only from $q$ and $h$. The \emph{criteria analyst} writes $u$, preserving explicit criteria $r$ or supplying a short correctness/clarity/evidence/actionability checklist. This separates search intent, task state, and answer requirements~\cite{liu2026agenttutor,borchers2025adaptivity}.
 
-\begin{table}[t]
-\centering
-\scriptsize
-\setlength{\tabcolsep}{0pt}
-\renewcommand{\arraystretch}{0.96}
-\begin{tabular}{@{}r@{\hspace{0.45em}}p{0.89\columnwidth}@{}}
-\toprule
-\multicolumn{2}{@{}l@{}}{\textbf{Algorithm 1: \textsc{MARLET} Inference Process}}\\
-\midrule
-\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Require:} entry $x=(q,o,c,h,r,v)$, caps $K,Q,L,N$, index $\mathcal{I}$, thresholds $\tau$.}\\
-\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Return:} answer $y$ and internal grounding fields $(R,D,\mathrm{citations})$.}\\
-\midrule
-1: & $b\leftarrow \mathrm{concat}(q,c,r,h)$; $s\leftarrow\mathrm{CueScores}(b)$\\
-2: & $(R,G)\leftarrow \mathrm{Route}(s,r,v,\tau)$\\
-3: & \textbf{parallel do}\\
-4: & \quad $p=(a,P),T_p\leftarrow\mathrm{Planner}(x,R,G,\mathcal{U})$\\
-5: & \quad $\ell,T_\ell\leftarrow\mathrm{State}(q,h,\mathcal{U})$\\
-6: & \quad \textbf{if} $r\ne\emptyset$ \textbf{or} $R=\mathrm{CF}$ \textbf{then} $u,T_u\leftarrow\mathrm{Criteria}(x,R,\mathcal{U})$ \textbf{else} $u\leftarrow\mathrm{DefaultCriteria}()$\\
-7: & \textbf{end parallel}\\
-8: & $P\leftarrow\mathrm{cap}(P,K)$; $T\leftarrow\mathrm{cap}(T_p\cup T_\ell\cup T_u,Q)$; $D\leftarrow\emptyset$\\
-9: & \textbf{if} $G=1$ \textbf{then}\\
-10: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},P)),q),Q,L)$\\
-11: & \textbf{end if}\\
-12: & $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,p,\ell,u,T,D,c),N)$\\
-13: & \textbf{if} $D=\emptyset$ \textbf{and} $s_{\rm ev}\ge\tau_2$ \textbf{then}\\
-14: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Search}(\mathcal{I},[q]),q),Q,L)$\\
-15: & \quad $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,p,\ell,u,T,D,c),N)$\\
-16: & \textbf{end if}\\
-17: & $y\leftarrow\mathrm{CriticOnce}(y_0,q,h,p,\ell,u,D,r)$\\
-18: & \textbf{return} $y,(R,D,\mathrm{ids}(D))$\\
-\bottomrule
-\end{tabular}
-\label{tab:marlet_pseudocode}
-\end{table}
-
 \subsection{Supervisor Routing}
 
 The supervisor begins with a routing blob:
@@ -200,6 +165,42 @@ y_0=A_{\rm gen}(q,o,h,p,\ell,u,T,D,c).
 Its prompt contains $q$, optional answer options $o$, recent interaction history $h$, state summary $\ell$, plan $p$, criteria summary $u$, tool observations $T$, and either retrieved evidence $D$ or inline context $c$. The generator is instructed by the task configuration to be correct, useful, concise but not terse, include a next step when appropriate, and cite retrieved evidence with document markers.
 
 The critic performs one bounded revision pass. It checks for missing citation markers when $D$ is nonempty, uncovered criteria from $r$, or a response style that conflicts with the inferred state. If no issue is found, $y=y_0$; otherwise the critic rewrites once using $(y_0,q,h,p,\ell,u,D,r)$ and the revised $y$ becomes the final answer.
+
+\begin{center}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{0pt}
+\renewcommand{\arraystretch}{0.96}
+\begin{tabular}{@{}r@{\hspace{0.45em}}p{0.89\columnwidth}@{}}
+\toprule
+\multicolumn{2}{@{}l@{}}{\textbf{Algorithm 1: \textsc{MARLET} Inference Process}}\\
+\midrule
+\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Require:} entry $x=(q,o,c,h,r,v)$, caps $K,Q,L,N$, index $\mathcal{I}$, tools $\mathcal{U}$, thresholds $\tau$.}\\
+\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Return:} answer $y$ and internal fields $(R,G,p,\ell,u,T,D,\mathrm{ids}(D))$.}\\
+\midrule
+1: & $b\leftarrow \mathrm{concat}(q,c,r,h)$; $s\leftarrow\mathrm{CueScores}(b)$\\
+2: & $R\leftarrow R(x)$; $G\leftarrow G(x)$\\
+3: & \textbf{parallel do}\\
+4: & \quad $p=(a,P),T_p\leftarrow\mathrm{Planner}(x,R,G,\mathcal{U})$\\
+5: & \quad $\ell,T_\ell\leftarrow\mathrm{State}(q,h,\mathcal{U})$\\
+6: & \quad \textbf{if} $r\ne\emptyset$ \textbf{or} $R=\mathrm{CF}$ \textbf{then} $u,T_u\leftarrow\mathrm{Criteria}(x,R,\mathcal{U})$\\
+7: & \quad \textbf{else} $u\leftarrow\mathrm{DefaultCriteria}()$; $T_u\leftarrow\emptyset$\\
+8: & \textbf{end parallel}\\
+9: & $P\leftarrow\mathrm{cap}(P,K)$; $p\leftarrow(a,P)$; $T\leftarrow\mathrm{cap}(T_p\cup T_\ell\cup T_u,Q)$; $D\leftarrow\emptyset$\\
+10: & \textbf{if} $G=1$ \textbf{then}\\
+11: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},P)),q),Q,L)$\\
+12: & \textbf{end if}\\
+13: & $D_0\leftarrow D$\\
+14: & $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,p,\ell,u,T,D,c),N)$\\
+15: & \textbf{if} $G_2(x)=1$ \textbf{then}\\
+16: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},[q])),q),Q,L)$\\
+17: & \quad $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,p,\ell,u,T,D,c),N)$\\
+18: & \textbf{end if}\\
+19: & $y\leftarrow\mathrm{CriticOnce}(y_0,q,h,p,\ell,u,D,r)$\\
+20: & \textbf{return} $y,(R,G,p,\ell,u,T,D,\mathrm{ids}(D))$\\
+\bottomrule
+\end{tabular}
+\end{center}
 
 \section{Validation Experiments}
 \label{sec:results}
