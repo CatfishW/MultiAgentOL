@@ -14,7 +14,7 @@ This file explains one real MARLET pipeline run from input to output. It is writ
 | Model | `/home/tang/Projects/Models/Qwen3.5-4B` |
 | Raw trace | `sample_traces/marlet_edubench_ag_row203_trace.json` |
 
-Important caveat: a short evidence-grounding instruction was appended only to force this demonstration through MARLET's retrieval branch. The trace is useful for understanding the pipeline mechanics, but it should not be reported as a benchmark score.
+Important caveat: a short evidence-grounding instruction was appended only for this demonstration. The purpose was to make the example exercise MARLET's retrieval branch so the walkthrough can show routing, retrieval, evidence insertion, generation, and critique in one trace. This is not how official benchmark inputs are altered, and this trace should not be reported as a benchmark score.
 
 ## One-Line Flow
 
@@ -44,15 +44,39 @@ The Magna Carta was a document signed by King John of England in 1215. It was im
 Please provide "Score", "Scoring Details", and "Personalized Feedback" based on the question and student's answer, in JSON format.
 ```
 
+### Demo-Only Operation: Append an Evidence Request
+
 For this trace only, the following sentence was appended.
 
 ```text
 Use available source evidence for verification; cite source, evidence, reference, document, chapter, lecture, and retrieval grounding when helpful.
 ```
 
-This added sentence is what makes the evidence score high and opens retrieval in the trace.
+Why this operation was done:
+
+```text
+The original EduBench row is mainly a grading/feedback request. It may or may not trigger retrieval strongly enough by itself. We appended an evidence request so this single walkthrough would show the full MARLET path, including retrieval and evidence insertion.
+```
+
+What this operation changes:
+
+```text
+It increases evidence-related cues such as source, evidence, reference, document, cite, and retrieval grounding.
+```
+
+What this operation does not mean:
+
+```text
+It is not part of the official experiment protocol. It should not be used to claim a benchmark result. It is only a controlled demonstration wrapper for explaining the mechanism.
+```
 
 ## 2. Standardized Input `x`
+
+Operation:
+
+```text
+Convert the raw EduBench row into MARLET's shared input object x.
+```
 
 MARLET first converts the dataset row into a shared input contract:
 
@@ -71,7 +95,25 @@ x = (q, o, c, h, r, v)
 
 All agents read from this standardized object through `AgentContext`. They do not read the raw JSON row directly.
 
+Why this operation is needed:
+
+```text
+Different datasets store fields differently. Normalization makes every downstream module read the same object shape, so the router, agents, retriever, and evaluator do not need dataset-specific logic.
+```
+
+Consequence:
+
+```text
+The rest of the pipeline can operate on x=(q,o,c,h,r,v) instead of raw EduBench JSON.
+```
+
 ## 3. Router Scores
+
+Operation:
+
+```text
+Read the standardized input x and compute cue scores for evidence, coordination, rubric, planning, and adaptation needs.
+```
 
 The router builds a text blob from the question, context, rubric, and dialogue history. It then computes cue scores for several response-construction needs.
 
@@ -88,6 +130,18 @@ Actual logged scores:
 }
 ```
 
+Why this operation is needed:
+
+```text
+The router must decide what kind of context construction is needed before generation. The scores convert visible request cues into routing signals: evidence, criteria, planning, adaptation, and coordination.
+```
+
+Consequence:
+
+```text
+These scores determine or influence R, G, rubric activation, retrieval activation, critic activation, and architecture selection.
+```
+
 ## 4. Consequences of Each Score
 
 The scores are not final answer scores. They are routing/control signals. Each score can affect regime selection, retrieval, module activation, or prompt content.
@@ -102,6 +156,12 @@ The scores are not final answer scores. They are routing/control signals. Each s
 | `tutoring` | `0.2143` | Alias/reporting view of adaptation in this code path. | It is logged for analysis but does not add a separate routing rule beyond adaptation. | Same practical effect as adaptation: it helps explain that this is an education/adaptive-response sample, but it is not a separate gate. |
 
 ## 5. Final Route Decision
+
+Operation:
+
+```text
+Convert cue scores and any explicit regime hint into route flags: response regime R, retrieval gate G, critic use, rubric-agent use, and specialist role list.
+```
 
 Actual logged route:
 
@@ -136,7 +196,25 @@ Why `R=AR` here: the example carries an EduBench adaptive-tutoring regime hint, 
 
 Why `G=1` here: the evidence score is `0.75`, which is above the retrieval gate threshold.
 
+Why this operation is needed:
+
+```text
+The route is the supervisor's compact control decision. It prevents the system from treating every request as the same raw retrieve-then-read task.
+```
+
+Consequence:
+
+```text
+For this sample, R=AR makes adaptation/state relevant, G=1 opens retrieval, use_rubric_agent=true activates criteria summarization, and use_critic=true adds one revision pass.
+```
+
 ## 6. Activated Modules
+
+Operation:
+
+```text
+Use the route flags to decide which MARLET modules run for this input.
+```
 
 For this actual sample, the active modules are:
 
@@ -151,7 +229,25 @@ For this actual sample, the active modules are:
 
 Important: this sample uses every main module, but MARLET does not require every module for every input. Rubric, retrieval, and critique are conditional.
 
+Why this operation is needed:
+
+```text
+Activation keeps MARLET bounded. The coordinator uses the route to avoid always running every expensive or unnecessary branch.
+```
+
+Consequence:
+
+```text
+This sample activates all main modules because it combines grading criteria, evidence need, and adaptive tutoring. Other samples can skip rubric, retrieval, or critic depending on route flags.
+```
+
 ## 7. Planner Step
+
+Operation:
+
+```text
+Ask the planner LLM to produce an operating strategy for the answer and a small list of retrieval queries.
+```
 
 The planner receives the standardized sample and route:
 
@@ -200,7 +296,25 @@ Planner trace stats:
 
 `llm_parse_fallback` means the planner LLM was called, but its JSON was not parsed successfully. The deterministic fallback is still regime-aware, so `R=AR` produced an adaptive strategy.
 
+Why this operation is needed:
+
+```text
+The planner separates answer organization from retrieval. It tells the generator how to approach the response and gives the retriever scoped search queries.
+```
+
+Consequence:
+
+```text
+The final prompt receives the operating plan a. Because G=1, the retriever also consumes P. If G were 0, P would be ignored and only a would remain useful.
+```
+
 ## 8. Diagnoser Step
+
+Operation:
+
+```text
+Ask the diagnoser LLM to extract visible user/task state from the current request and available dialogue history.
+```
 
 The diagnoser receives the same sample fields, but its prompt does not explicitly print the regime. It extracts only visible state from the current request.
 
@@ -225,9 +339,25 @@ Diagnoser trace stats:
 | Mode | `llm_parse_fallback` |
 | Latency | `4664 ms` |
 
-Consequence: `ell` becomes the `Visible user/task state` block in the generator prompt. For `R=AR`, this state block is especially important because the generator is expected to adapt feedback to the visible task state.
+Why this operation is needed:
+
+```text
+The diagnoser prevents the generator from treating every user as identical. It extracts only visible state, such as level, goal, style, or confusion, without inventing hidden personal attributes.
+```
+
+Consequence:
+
+```text
+The generator sees a separate state block. In this trace, the block says the user is intermediate, wants to solve the current problem, and has no stated style.
+```
 
 ## 9. Rubric Agent Step
+
+Operation:
+
+```text
+Ask the rubric LLM to compress explicit grading or answer criteria into a checklist.
+```
 
 The rubric agent receives the standardized sample, explicit criteria, and the regime.
 
@@ -263,9 +393,25 @@ Rubric trace stats:
 | Mode | `llm_parse_fallback` |
 | Latency | `5200 ms` |
 
-Consequence: `u` becomes the `Answer criteria` block in the generator prompt. It also gives the critic concrete items to check.
+Why this operation is needed:
+
+```text
+The rubric agent prevents criteria from being buried inside a long prompt. It turns explicit grading requirements into a compact checklist.
+```
+
+Consequence:
+
+```text
+The generator is explicitly constrained by Accuracy, Comprehension, Depth, Historical Accuracy, and related criteria. The critic can also compare the draft against these criteria.
+```
 
 ## 10. Coordinator Merge
+
+Operation:
+
+```text
+Collect the planner, diagnoser, rubric, and tool records into one response brief.
+```
 
 After planner, diagnoser, and rubric return, the coordinator merges their records into one updated context:
 
@@ -287,7 +433,25 @@ original task + route + strategy + search queries + visible state + criteria + t
 
 This is the first key coordination step. The specialists do not send messages to each other. They write structured outputs, and the coordinator puts those outputs into one shared context.
 
+Why this operation is needed:
+
+```text
+Without merging, the specialist outputs would remain disconnected. Coordination is the step that turns separate records into one usable response brief.
+```
+
+Consequence:
+
+```text
+The next modules no longer see only the raw question. They see the raw question plus route, strategy, retrieval queries, visible state, criteria, and tool notes.
+```
+
 ## 11. Conditional Retrieval
+
+Operation:
+
+```text
+If G is open, search the corpus using the planner queries and return a compact evidence bundle D.
+```
 
 Because `G=true`, MARLET retrieves evidence using planner queries `P`.
 
@@ -308,9 +472,25 @@ Actual retrieved evidence `D`:
 | 3 | `edubench-ag-204` | `0.4690` | Related Magna Carta example about democratic principles, rule of law, and limiting absolute power. |
 | 4 | `edubench-ag-206` | `0.4914` | Another related medieval England example. |
 
-Consequence: the evidence bundle `D` is inserted into the final prompt as `Grounding evidence`, with doc IDs available for citation.
+Why this operation is needed:
+
+```text
+The retriever supplies source material only when the gate opens. This avoids forcing every sample through corpus search while still grounding evidence-sensitive requests.
+```
+
+Consequence:
+
+```text
+The generator receives four cited Magna Carta chunks. It is expected to use those chunks when judging factual accuracy and to cite them with [doc_id] markers.
+```
 
 ## 12. Final Prompt Assembly
+
+Operation:
+
+```text
+Assemble the original task, route-specific agent outputs, evidence bundle, and answer requirements into one generator prompt.
+```
 
 The generator receives one augmented prompt. Actual logged blocks:
 
@@ -372,7 +552,25 @@ Answer requirements:
 
 This is why the framework is still RAG: retrieved evidence and agent-produced context are assembled into one augmented prompt before the final LLM answers.
 
+Why this operation is needed:
+
+```text
+This is the final convergence point. It makes MARLET a RAG-style context-construction framework rather than a set of independent answer-producing agents.
+```
+
+Consequence:
+
+```text
+The final generator receives one prompt containing q, a, ell, u, D, and answer requirements. Only after this assembly does the system produce a user-facing draft.
+```
+
 ## 13. Generator and Critic
+
+Operation:
+
+```text
+Generate one user-facing draft from the assembled prompt, then run one bounded critic pass when critique is enabled.
+```
 
 The generator is the only component that produces the user-facing draft. Because this sample has EduBench evaluation metadata, it uses the EduBench JSON system prompt and is supposed to return:
 
@@ -407,6 +605,18 @@ Actual critic trace:
 | Latency | `6134 ms` |
 
 The critic also returned malformed reasoning text in this trace, so this example should be used to explain pipeline mechanics rather than final answer quality.
+
+Why this operation is needed:
+
+```text
+The generator is responsible for the first user-facing answer. The critic is a bounded safeguard that checks citation use, criteria coverage, and state-appropriate style.
+```
+
+Consequence:
+
+```text
+In this trace, the mechanics ran, but Qwen3.5-4B emitted reasoning text despite JSON-only instructions. This exposes a formatting weakness in the demo run and is why the raw answer is not used as the clean example output.
+```
 
 ## 14. Clean Intended Output Shape
 
