@@ -53,10 +53,10 @@ Specialized assistance, e.g., tutoring, is more complex than factual question an
 Classical RAG can include explicit state text when supplied, but appending user state, dialogue, criteria, and task constraints forces one query embedding to compress topic, level of detail, intent, and response requirements. As constraints grow, search intent can blur. The issue is therefore how a response system should organize constraints before retrieval and generation.
 
 Therefore, we introduce \textsc{MARLET} (Multi-Agent Retrieval with Lightweight Evidence and Task-State Control), a configurable RAG controller for structured context construction. Instead of letting the retriever act as the top-level controller, a supervisory router chooses which context requirement should dominate (planning, criteria, adaptation, or evidence) and whether retrieval should run; planner, state, and criteria specialists prepare structured context in parallel; bounded local tools inspect resources; and all outputs are reassembled with evidence into one generator prompt.
-c
+
 % In this work, we validate the framework in educational tutoring rather than present a model leaderboard. We compare with classical RAG and Agentic RAG under shared backbone, corpus, reranker, response cap, generator, and critic. The results show that the same generator scores higher when fed context assembled by \textsc{MARLET}, with lower resource cost in several settings.
 
-\noindent\textbf{Contributions.} (i) We propose \textsc{MARLET}, a multi-agent retrieval framework with routing, specialist context construction, bounded tools, conditional retrieval, generation, and critique. (ii) We formalize transparent training-free controls over task state, answer criteria, and external evidence. (iii) We instantiate the framework for educational tutoring and validate it against classical RAG and Agentic RAG under shared infrastructure.
+\noindent\textbf{Contributions.} (i) We propose \textsc{MARLET}, a multi-agent retrieval framework with routing, specialist context construction, bounded tools, conditional retrieval, generation, and critique. (ii) We formalize transparent training-free controls over task state, answer criteria, and external evidence. (iii) We instantiate the framework for educational tutoring and validate it against classical RAG under paired infrastructure, with an additional agentic coordination snapshot for comparison.
 
 \section{Related Work}
 
@@ -209,7 +209,7 @@ The critic performs one bounded revision pass. It checks for missing citation ma
 
 We validate the framework on two public educational benchmarks used as tutoring-focused stress tests. TutorEval~\cite{chevalier2024sciencetutors} pairs science tutoring questions with long STEM chapters and teaching key points; EduBench~\cite{xu2025edubench} covers diverse educational scenarios with prompts, metadata, and reference model predictions that our adapter converts into score and rubric supervision.
 
-The primary validation compares three context-assembly methods under matched infrastructure, with a \textsc{Qwen3.5-27B-FP8} replication checking backbone sensitivity. Classical RAG retrieves first from the raw standardized prompt; visible learner profile, student answer, dialogue, and criteria text remain available to its generator prompt, so the baseline is not deprived of task context. Its limitation is controller order: retrieval happens before specialist summaries can shape search. Agentic RAG runs the same planner, state diagnoser, and criteria module before retrieval, but retrieval is always on. \textsc{MARLET} keeps the same specialists and retriever, then adds supervisory routing, conditional retrieval, and retry control. We report quality and cost together because only context construction changes.
+The primary validation compares context-assembly methods under matched infrastructure, with a \textsc{Qwen3.5-27B-FP8} replication checking backbone sensitivity. Classical RAG retrieves first from the raw standardized prompt; visible learner profile, student answer, dialogue, and criteria text remain available to its generator prompt, so the baseline is not deprived of task context. Its limitation is controller order: retrieval happens before specialist summaries can shape search. The 4B table also reports the previous multi-agent non-retrieval run as an Agentic baseline: it uses specialist coordination without the conditional evidence branch, so it tests whether coordination alone explains the gains. \textsc{MARLET} keeps the same specialists and retriever, then adds supervisory routing, conditional retrieval, and retry control. We report quality and cost together because only context construction changes.
 
 \subsection{Implementation Details}
 
@@ -221,33 +221,33 @@ For EduBench, EB12D averages 12 normalized checks over scenario adaptation, fact
 
 \subsection{Framework Validation}
 
-Table~\ref{tab:validation_summary} reports paired 4B comparisons with bootstrap CIs and permutation p-values; Table~\ref{tab:validation_27b} reports the 27B replication. Agentic RAG uses the same specialist brief as \textsc{MARLET} but retrieves for every sample, and its matched results are being generated under the same protocol.
+Table~\ref{tab:validation_summary} reports paired 4B comparisons with bootstrap CIs and permutation p-values, plus the previous Agentic snapshot for reference; Table~\ref{tab:validation_27b} reports the 27B paired replication. The Agentic column is not used for significance testing because it comes from the earlier completed multi-agent non-retrieval run.
 
 \begin{table}[t]
-\caption{4B quality and resource summary.}
+\caption{4B quality and resource summary with Agentic comparison.}
 \label{tab:validation_summary}
 \centering
-\footnotesize
-\setlength{\tabcolsep}{2.8pt}
+\scriptsize
+\setlength{\tabcolsep}{1.7pt}
 \renewcommand{\arraystretch}{0.96}
-\begin{tabular}{llrrr}
+\begin{tabular}{@{}llrrrr@{}}
 \toprule
-Data & Metric & RAG & Ours & $\Delta$ \\
+Data & Metric & RAG & Agentic & Ours & $\Delta$ \\
 \midrule
-\multirow{5}{*}{TutorEval} & Token-F1 & 0.112 & \textbf{0.115} & $+0.004^{\star}$ \\
-& Tutor hit & 0.938 & \textbf{0.957} & $+0.019^{\star\star}$ \\
-& Rubric & 0.919 & \textbf{0.944} & $+0.026^{\star\star}$ \\
-& Latency (s) & 51.90 & \textbf{49.11} & $-2.79$ \\
-& Tokens & 3975 & \textbf{3490} & $-484^{\star\star\star}$ \\
+\multirow{5}{*}{TutorEval} & Token-F1 & 0.112 & 0.090 & \textbf{0.115} & $+0.004^{\star}$ \\
+& Tutor hit & 0.938 & 0.932 & \textbf{0.957} & $+0.019^{\star\star}$ \\
+& Rubric & 0.919 & 0.907 & \textbf{0.944} & $+0.026^{\star\star}$ \\
+& Latency (s) & 51.90 & 51.05 & \textbf{49.11} & $-2.79$ \\
+& Tokens & 3975 & 5959 & \textbf{3490} & $-484^{\star\star\star}$ \\
 \midrule
-\multirow{5}{*}{EduBench} & EB12D & 0.367 & \textbf{0.398} & $+0.031^{\star\star\star}$ \\
-& Rubric & 0.705 & \textbf{0.891} & $+0.186^{\star\star\star}$ \\
-& EduAlign & \textbf{0.166} & 0.126 & $-0.040^{\star\star}$ \\
-& Latency (s) & 19.83 & \textbf{13.90} & $-5.92^{\star\star\star}$ \\
-& Tokens & 4020 & \textbf{2226} & $-1794^{\star\star\star}$ \\
+\multirow{5}{*}{EduBench} & EB12D & 0.367 & \textbf{0.398} & \textbf{0.398} & $+0.031^{\star\star\star}$ \\
+& Rubric & 0.705 & \textbf{0.891} & \textbf{0.891} & $+0.186^{\star\star\star}$ \\
+& EduAlign & \textbf{0.166} & 0.130 & 0.126 & $-0.040^{\star\star}$ \\
+& Latency (s) & 19.83 & \textbf{13.73} & 13.90 & $-5.92^{\star\star\star}$ \\
+& Tokens & 4020 & \textbf{2224} & 2226 & $-1794^{\star\star\star}$ \\
 \bottomrule
 \end{tabular}
-\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}$^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency and tokens. Runtime is mean wall-clock seconds/sample on the experiment server.\end{minipage}
+\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}Agentic is the prior multi-agent non-retrieval snapshot. Bold marks the best displayed value after rounding. $\Delta$ and significance compare paired Ours--RAG only: $^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency and tokens. Runtime is mean wall-clock seconds/sample on the experiment server.\end{minipage}
 \end{table}
 
 \begin{table}[t]
