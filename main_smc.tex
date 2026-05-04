@@ -77,9 +77,9 @@ x=(q,o,c,h,r,v).
 \end{equation}
 The entry contains only information visible before generation. Here, $q$ is the question or task; $o$ is any answer-option set; $c$ is inline context already provided with the request; $h$ is recent interaction history; $r$ is explicit criteria such as a rubric or required feedback points; and $v$ stores images when present. Any field may be empty. This single interface lets MARTC handle different request types without changing the downstream pipeline.
 
-The only user-facing output is the final answer $y$. All other variables are internal slots used to assemble the final prompt. During inference, the planner fills a plan slot $p=(a,P)$, where $a$ is a short response strategy and $P$ is a capped list of retrieval queries. The diagnoser fills a state slot $\ell$ from the visible question and history. The criteria agent fills a criteria slot $u$ from the rubric or, if no rubric is provided, from a default answer-quality checklist.
+The only user-facing output is the final answer $y$. All other variables are internal slots used to assemble the final prompt. During inference, the planner fills a plan slot $p=(a,P)$, where $a$ is a short response strategy and $P$ is a short list of retrieval queries. The diagnoser fills a state slot $\ell$ from the visible question and history. The criteria agent fills a criteria slot $u$ from the rubric or, if no rubric is provided, from a default answer-quality checklist.
 
-MARTC also maintains two bounded context containers. Tool observations $T$ store outputs from allowed local inspection tools, and the evidence bundle $D$ stores retrieved snippets when retrieval is activated. The caps define the maximum work allowed at each stage: $K$ limits queries in $P$, $Q$ limits retrieved chunks and tool observations, $L$ limits evidence length, and $N$ limits final response tokens. These definitions are introduced here so later stages have a clear contract: routing decides what kind of context is needed, specialists fill the appropriate slots, retrieval optionally fills $D$, and prompt assembly combines the slots into one augmented generator prompt. This prevents topic, state, criteria, and evidence needs from being compressed into a single long retrieval query~\cite{liu2026agenttutor,borchers2025adaptivity}.
+MARTC also maintains an evidence bundle $D$ for retrieved snippets when retrieval is activated. These definitions are introduced here so later stages have a clear contract: routing decides what kind of context is needed, specialists fill the appropriate slots, retrieval optionally fills $D$, and prompt assembly combines the slots into one augmented generator prompt. This prevents topic, state, criteria, and instructional-material needs from being compressed into a single long retrieval query~\cite{liu2026agenttutor,borchers2025adaptivity}.
 
 \subsection{Supervisor Routing}
 The supervisory router is responsible for mapping each input sample to a pedagogical regime and activating the corresponding specialist agents. Given an input sample, the router examines the visible question, optional context, dialogue history, learner-state information, rubric or criteria text, and task metadata. It then estimates four types of context need: planning, criteria feedback, learner-state adaptation, and instructional-material grounding.
@@ -151,34 +151,6 @@ In PL, the planner provides the main organizing structure, such as the instructi
 
 This agent-regime design avoids forcing all tutoring needs into a single retrieval query. Instead of embedding one long query containing the topic, learner state, rubric, response goal, and evidence need, MARTC decomposes these requirements into structured prompt blocks. Retrieval is guided by clearer search intent, while learner-state and criteria information remain available as separate context for generation and post-generation critique.
 
-%After routing, the coordinator has two control signals, not an answer. The regime $R$ decides which constraint receives prompt priority: ordered steps for PL, evaluation requirements for CF, user/task adaptation for AR, or instructional-material support for IM. Thus $R$ changes the instructions sent to the specialists and the order of blocks in the final prompt. The gate $G$ decides whether the brief should be connected to the corpus retriever. If $G=1$, MARTC will search external resources after the specialists finish; if $G=0$, it will assemble the prompt from the brief, tool observations, and inline context without adding retrieved chunks.
-
-%MARTC then builds the brief through LLM-backed specialist agents inspired by tool-using and multi-agent systems~\cite{yao2023react,wu2024autogen}. Each active specialist receives the same standardized entry $x$, the regime $R$, the gate $G$, and a bounded tool set $\mathcal{U}$. The planner returns $p=(a,P)$, where $a$ is a response strategy and $P$ is a capped list of search queries. $P$ is the bridge from agents to retrieval: it is consumed by the retriever only when $G=1$; otherwise it remains a plan block for the generator. The state diagnoser returns $\ell$, which tells the generator and critic what visible user/task state should shape explanation depth and tone. The criteria analyst returns $u$, which tells the generator and critic what requirements the answer must satisfy; when no explicit criteria are present and $R\ne\mathrm{CF}$, $u$ is filled by a default checklist rather than by an extra LLM call.
-
-%The tools are side-effect-free local functions: key-term extraction, inline-context inspection, dialogue-state inspection, criteria listing, and corpus search. Specialists may request these tools in their JSON output, and the coordinator also provides a small default observation to each specialist. Tool observations $T$ are capped by $Q$ and inserted as prompt context. This allows the agents to inspect a local resource before writing while keeping execution bounded.
-
-%The coordinator dispatches $(x,R,G)$ to the planner, state diagnoser, and criteria analyst in parallel; each agent writes one structured record and optional tool requests; the coordinator validates those requests, executes only allowed local tools, caps the observations, and replaces malformed records with deterministic fallbacks. It then merges $(R,G,p,\ell,u,T)$ into one response brief. The specialists therefore communicate through the coordinator's structured records, not by open-ended chat with each other. After this merge, the gate determines the next step: $G=1$ sends planner queries $P$ to retrieval to build evidence bundle $D$, while $G=0$ leaves $D$ empty and sends the brief directly to prompt assembly. In both cases, one final generator prompt receives explicit blocks for plan, visible state, criteria, tool observations, and evidence instead of asking a single query string to carry every constraint.
-
-%\subsection{Conditional Retrieval and Evidence Assembly}
-
-%After the LLM specialists produce the response brief, the coordinator uses the gate $G$ to decide whether external evidence should enter the final prompt. If $G=0$, the generator receives the plan, visible state, criteria, and tool observations without retrieved chunks. If $G=1$, the planner queries $P$ are sent to the corpus-search tool, while dialogue, criteria, and state summaries remain separate prompt blocks. This keeps retrieval focused on search while still preserving the other constraints for generation.
-
-%The retrieval path has four bounded steps:
-%\begin{equation}
-%D=\mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},P)),q),Q,L),
-%\end{equation}
-%where $\mathcal{I}$ is the configured corpus index, \textsc{Search} retrieves candidates for the queries in $P$, \textsc{Dedup} merges repeated chunks, \textsc{Rerank} scores candidates against the original question $q$, and \textsc{Pack} selects at most $Q$ relevant and non-redundant snippets under length cap $L$. The relevance-diversity packing follows the intuition of MMR-style selection~\cite{carbonell1998mmr}. The result is the evidence bundle $D$, a structured prompt block that later converges with the plan, state, criteria, and tool observations.
-
-%\subsection{Generation and Critic Revision}
-
-%This is where retrieval and agent outputs converge: $(R,G,p,\ell,u,T)$ supplies route, plan, state, criteria, and tool-observation fields, while $D$ supplies compact cited evidence. The final prompt contains task fields, response brief, evidence or inline context, and output requirements. The generator is the LLM-driven answer writer:
-%\begin{equation}
-%$y_0=A_{\rm gen}%(q,o,h,p,\ell,u,T,D,c).
-%\end{equation}
-%Its prompt contains $q$, optional answer options $o$, recent interaction history $h$, state summary $\ell$, plan $p$, criteria summary $u$, tool observations $T$, and either retrieved evidence $D$ or inline context $c$. The generator is instructed by the task configuration to be correct, useful, concise but not terse, include a next step when appropriate, and cite retrieved evidence with document markers.
-
-%The critic performs one bounded revision pass. It checks for missing citation markers when $D$ is nonempty, uncovered criteria from $r$, or a response style that conflicts with the inferred state. If no issue is found, $y=y_0$; otherwise the critic rewrites once using $(y_0,q,h,p,\ell,u,D,r)$ and the revised $y$ becomes the final answer.
-
 \begin{center}
 \centering
 \scriptsize
@@ -188,25 +160,25 @@ This agent-regime design avoids forcing all tutoring needs into a single retriev
 \toprule
 \multicolumn{2}{@{}l@{}}{\textbf{Algorithm 1: \textsc{MARTC} Inference Process}}\\
 \midrule
-\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Require:} entry $x=(q,o,c,h,r,v)$, caps $K,Q,L,N$, index $\mathcal{I}$, tools $\mathcal{U}$, thresholds $(\tau_{\rm mid},\tau_{\rm plan})$.}\\
-\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Return:} answer $y$ and internal fields $(R,G,p,\ell,u,T,D)$.}\\
+\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Require:} entry $x=(q,o,c,h,r,v)$, index $\mathcal{I}$, thresholds $(\tau_{\rm mid},\tau_{\rm plan})$.}\\
+\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Return:} answer $y$ and internal fields $(R,G,p,\ell,u,D)$.}\\
 \midrule
 1: & $b\leftarrow \mathrm{concat}(q,c,r,h)$; $(s_{\rm im},s_{\rm cr},s_{\rm pl},s_{\rm ad})\leftarrow\mathrm{CueScores}(b)$\\
 2: & $R\leftarrow R(x)$ using Eq. (4); $G\leftarrow G(x)$ using Eq. (5)\\
 3: & \textbf{parallel do}\\
-4: & \quad $p=(a,P),T_p\leftarrow\mathrm{Planner}(x,R,G,\mathcal{U})$\\
-5: & \quad $\ell,T_\ell\leftarrow\mathrm{Diagnoser}(q,h,\mathcal{U})$\\
-6: & \quad \textbf{if} $r\ne\emptyset$ or $R=\mathrm{CF}$ \textbf{then} $u,T_u\leftarrow\mathrm{Criteria}(x,R,\mathcal{U})$\\
-7: & \quad \textbf{else} $u\leftarrow\mathrm{DefaultCriteria}()$; $T_u\leftarrow\emptyset$\\
+4: & \quad $p=(a,P)\leftarrow\mathrm{Planner}(x,R,G)$\\
+5: & \quad $\ell\leftarrow\mathrm{Diagnoser}(q,h)$\\
+6: & \quad \textbf{if} $r\ne\emptyset$ or $R=\mathrm{CF}$ \textbf{then} $u\leftarrow\mathrm{Criteria}(x,R)$\\
+7: & \quad \textbf{else} $u\leftarrow\mathrm{DefaultCriteria}()$\\
 8: & \quad \textbf{end if}\\
 9: & \textbf{end parallel}\\
-10: & $P\leftarrow\mathrm{cap}(P,K)$; $p\leftarrow(a,P)$; $T\leftarrow\mathrm{cap}(T_p\cup T_\ell\cup T_u,Q)$; $D\leftarrow\emptyset$\\
+10: & $D\leftarrow\emptyset$\\
 11: & \textbf{if} $G=1$ \textbf{then}\\
-12: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},P)),q),Q,L)$\\
+12: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},P)),q))$\\
 13: & \textbf{end if}\\
-14: & $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,p,\ell,u,T,D,c),N)$\\
+14: & $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,p,\ell,u,D,c))$\\
 15: & $y\leftarrow\mathrm{CriticOnce}(y_0,q,h,p,\ell,u,D,r)$\\
-16: & \textbf{return} $y,(R,G,p,\ell,u,T,D)$\\
+16: & \textbf{return} $y,(R,G,p,\ell,u,D)$\\
 \bottomrule
 \end{tabular}
 \end{center}
