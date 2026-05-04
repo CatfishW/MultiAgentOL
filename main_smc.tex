@@ -237,62 +237,60 @@ For EduBench, EB12D averages 12 normalized checks over scenario adaptation, fact
 
 \subsection{Framework Validation}
 
-Table~\ref{tab:validation_summary} reports paired 4B comparisons with bootstrap CIs and permutation p-values, plus the previous Agentic snapshot for reference and 27B replication columns. Table~\ref{tab:validation_27b} reports the full 27B paired RAG--\textsc{MARTC} comparison. The Agentic columns are not used for significance testing because the 4B values come from the earlier completed multi-agent non-retrieval run and the 27B Agentic values are pending replacement.
+Table~\ref{tab:validation_summary} reports paired 4B comparisons with bootstrap CIs and permutation p-values, plus the previous 4B Agentic snapshot for reference. Table~\ref{tab:validation_27b} reports the 27B comparison. The Agentic columns are not used for significance testing because the 4B values come from the earlier completed multi-agent non-retrieval run and the 27B Agentic values are pending replacement.
 
 \begin{table}[t]
-\caption{Quality and resource summary with Agentic and 27B comparison.}
+\caption{4B quality and resource summary with Agentic comparison.}
 \label{tab:validation_summary}
 \centering
 \scriptsize
-\setlength{\tabcolsep}{0.7pt}
+\setlength{\tabcolsep}{1.7pt}
 \renewcommand{\arraystretch}{0.96}
-\begin{adjustbox}{width=\columnwidth}
-\begin{tabular}{@{}llrrrrrr@{}}
+\begin{tabular}{@{}llrrrr@{}}
 \toprule
-Data & Metric & RAG & Ag-4B & MARTC & Ag-27B & MARTC-27B & $\Delta$ \\
+Data & Metric & RAG & Agentic & MARTC & $\Delta$ \\
 \midrule
-\multirow{5}{*}{TutorEval} & Token-F1 & 0.112 & 0.090 & 0.115 & TBD & \textbf{0.272} & $+0.004^{\star}$ \\
-& Tutor hit & 0.938 & 0.932 & \textbf{0.957} & TBD & 0.918 & $+0.019^{\star\star}$ \\
-& Rubric & 0.919 & 0.907 & \textbf{0.944} & TBD & 0.891 & $+0.026^{\star\star}$ \\
-& Latency (s) & 51.90 & 51.05 & 49.11 & TBD & \textbf{40.65} & $-2.79$ \\
-& Tokens & 3975 & 5959 & \textbf{3490} & TBD & 6730 & $-484^{\star\star\star}$ \\
+\multirow{5}{*}{TutorEval} & Token-F1 & 0.112 & 0.090 & \textbf{0.115} & $+0.004^{\star}$ \\
+& Tutor hit & 0.938 & 0.932 & \textbf{0.957} & $+0.019^{\star\star}$ \\
+& Rubric & 0.919 & 0.907 & \textbf{0.944} & $+0.026^{\star\star}$ \\
+& Latency (s) & 51.90 & 51.05 & \textbf{49.11} & $-2.79$ \\
+& Tokens & 3975 & 5959 & \textbf{3490} & $-484^{\star\star\star}$ \\
 \midrule
-\multirow{5}{*}{EduBench} & EB12D & 0.367 & 0.398 & 0.398 & TBD & \textbf{0.425} & $+0.031^{\star\star\star}$ \\
-& Rubric & 0.705 & \textbf{0.891} & \textbf{0.891} & TBD & 0.769 & $+0.186^{\star\star\star}$ \\
-& EduAlign & 0.166 & 0.130 & 0.126 & TBD & \textbf{0.526} & $-0.040^{\star\star}$ \\
-& Latency (s) & 19.83 & 23.73 & \textbf{13.90} & TBD & 32.09 & $-5.92^{\star\star\star}$ \\
-& Tokens & 4020 & 5224 & \textbf{2226} & TBD & 3717 & $-1794^{\star\star\star}$ \\
+\multirow{5}{*}{EduBench} & EB12D & 0.367 & \textbf{0.398} & \textbf{0.398} & $+0.031^{\star\star\star}$ \\
+& Rubric & 0.705 & \textbf{0.891} & \textbf{0.891} & $+0.186^{\star\star\star}$ \\
+& EduAlign & \textbf{0.166} & 0.130 & 0.126 & $-0.040^{\star\star}$ \\
+& Latency (s) & 19.83 & 23.73 & \textbf{13.90} & $-5.92^{\star\star\star}$ \\
+& Tokens & 4020 & 5224 & \textbf{2226} & $-1794^{\star\star\star}$ \\
 \bottomrule
 \end{tabular}
-\end{adjustbox}
-\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}Ag-4B is the prior multi-agent non-retrieval snapshot; Ag-27B is a placeholder column pending replacement with completed 27B Agentic values. MARTC-27B shows the 27B replication for our framework only; the full paired 27B RAG comparison appears in Table~\ref{tab:validation_27b}. Bold marks the best displayed value after rounding within each row, excluding TBD placeholders. $\Delta$ and significance compare paired 4B MARTC--RAG only: $^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency and tokens.\end{minipage}
+\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}Agentic is the prior 4B multi-agent non-retrieval snapshot. Bold marks the best displayed value after rounding. $\Delta$ and significance compare paired 4B MARTC--RAG only: $^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency and tokens.\end{minipage}
 \end{table}
 
 \begin{table}[t]
-\caption{27B quality and resource summary.}
+\caption{27B quality and resource summary with Agentic placeholder.}
 \label{tab:validation_27b}
 \centering
 \footnotesize
-\setlength{\tabcolsep}{2.8pt}
+\setlength{\tabcolsep}{2.2pt}
 \renewcommand{\arraystretch}{0.90}
-\begin{tabular}{llrrr}
+\begin{tabular}{llrrrr}
 \toprule
-Data & Metric & RAG & Ours & $\Delta$ \\
+Data & Metric & RAG & Agentic & MARTC & $\Delta$ \\
 \midrule
-\multirow{5}{*}{TutorEval} & Token-F1 & 0.264 & \textbf{0.272} & $+0.008^{\star}$ \\
-& Tutor hit & 0.897 & \textbf{0.918} & $+0.021^{\star}$ \\
-& Rubric & 0.861 & \textbf{0.891} & $+0.030^{\star}$ \\
-& Latency (s) & 41.47 & \textbf{40.65} & $-0.82^{\star\star}$ \\
-& Tokens & 6681 & 6730 & $+49$ \\
+\multirow{5}{*}{TutorEval} & Token-F1 & 0.264 & TBD & \textbf{0.272} & $+0.008^{\star}$ \\
+& Tutor hit & 0.897 & TBD & \textbf{0.918} & $+0.021^{\star}$ \\
+& Rubric & 0.861 & TBD & \textbf{0.891} & $+0.030^{\star}$ \\
+& Latency (s) & 41.47 & TBD & \textbf{40.65} & $-0.82^{\star\star}$ \\
+& Tokens & 6681 & TBD & 6730 & $+49$ \\
 \midrule
-\multirow{5}{*}{EduBench} & EB12D & 0.355 & \textbf{0.425} & $+0.070^{\star\star\star}$ \\
-& Rubric & 0.634 & \textbf{0.769} & $+0.135^{\star\star\star}$ \\
-& EduAlign & \textbf{0.541} & 0.526 & $-0.015$ \\
-& Latency (s) & 41.91 & \textbf{32.09} & $-9.81^{\star\star\star}$ \\
-& Tokens & 6105 & \textbf{3717} & $-2388^{\star\star\star}$ \\
+\multirow{5}{*}{EduBench} & EB12D & 0.355 & TBD & \textbf{0.425} & $+0.070^{\star\star\star}$ \\
+& Rubric & 0.634 & TBD & \textbf{0.769} & $+0.135^{\star\star\star}$ \\
+& EduAlign & \textbf{0.541} & TBD & 0.526 & $-0.015$ \\
+& Latency (s) & 41.91 & TBD & \textbf{32.09} & $-9.81^{\star\star\star}$ \\
+& Tokens & 6105 & TBD & \textbf{3717} & $-2388^{\star\star\star}$ \\
 \bottomrule
 \end{tabular}
-\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}TutorEval uses $n{=}400$ paired samples; EduBench uses $n{=}328$ unique paired rows after duplicate public IDs in the 400-example slice are collapsed. $^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency and tokens. Runtime is mean wall-clock seconds/sample on the experiment server.\end{minipage}
+\begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}Agentic values are placeholders pending completed 27B Agentic results. TutorEval uses $n{=}400$ paired samples; EduBench uses $n{=}328$ unique paired rows after duplicate public IDs in the 400-example slice are collapsed. $\Delta$ and significance compare paired 27B MARTC--RAG only: $^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency and tokens.\end{minipage}
 \end{table}
 
 \subsection{Trade-offs}
