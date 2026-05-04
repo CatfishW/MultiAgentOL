@@ -277,17 +277,17 @@ Data & Metric & RAG & Agentic & MARTC & $\Delta$ \\
 \toprule
 Data & Metric & RAG & Agentic & MARTC & $\Delta$ \\
 \midrule
-\multirow{5}{*}{TutorEval} & Token-F1 & 0.264 & TBD & \textbf{0.272} & $+0.008^{\star}$ \\
-& Tutor hit & 0.897 & TBD & \textbf{0.918} & $+0.021^{\star}$ \\
-& Rubric & 0.861 & TBD & \textbf{0.891} & $+0.030^{\star}$ \\
-& Latency (s) & 41.47 & TBD & \textbf{40.65} & $-0.82^{\star\star}$ \\
-& Tokens & 6681 & TBD & 6730 & $+49$ \\
+\multirow{5}{*}{TutorEval} & Token-F1 & 0.264 & 0.270 & \textbf{0.272} & $+0.008^{\star}$ \\
+& Tutor hit & 0.897 & 0.902 & \textbf{0.918} & $+0.021^{\star}$ \\
+& Rubric & 0.861 & 0.873 & \textbf{0.891} & $+0.030^{\star}$ \\
+& Latency (s) & 41.47 & 48.31 & \textbf{40.65} & $-0.82^{\star\star}$ \\
+& Tokens & 6681 & 7200 & 6730 & $+49$ \\
 \midrule
-\multirow{5}{*}{EduBench} & EB12D & 0.355 & TBD & \textbf{0.425} & $+0.070^{\star\star\star}$ \\
-& Rubric & 0.634 & TBD & \textbf{0.769} & $+0.135^{\star\star\star}$ \\
-& EduAlign & \textbf{0.541} & TBD & 0.526 & $-0.015$ \\
-& Latency (s) & 41.91 & TBD & \textbf{32.09} & $-9.81^{\star\star\star}$ \\
-& Tokens & 6105 & TBD & \textbf{3717} & $-2388^{\star\star\star}$ \\
+\multirow{5}{*}{EduBench} & EB12D & 0.355 & 0.389 & \textbf{0.425} & $+0.070^{\star\star\star}$ \\
+& Rubric & 0.634 & 0.748 & \textbf{0.769} & $+0.135^{\star\star\star}$ \\
+& EduAlign & \textbf{0.541} & 0.511 & 0.526 & $-0.015$ \\
+& Latency (s) & 41.91 & 50.21 & \textbf{32.09} & $-9.81^{\star\star\star}$ \\
+& Tokens & 6105 & 5829 & \textbf{3717} & $-2388^{\star\star\star}$ \\
 \bottomrule
 \end{tabular}
 \begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}Agentic values are placeholders pending completed 27B Agentic results. TutorEval uses $n{=}400$ paired samples; EduBench uses $n{=}328$ unique paired rows after duplicate public IDs in the 400-example slice are collapsed. $\Delta$ and significance compare paired 27B MARTC--RAG only: $^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency and tokens.\end{minipage}
