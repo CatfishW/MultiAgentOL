@@ -39,6 +39,7 @@ Task-State Control
 
 \begin{document}
 \maketitle
+\raggedbottom
 
 \begin{abstract}
 Large language models can generate fluent responses, but specialized assistance like tutoring requires grounding in external evidence, visible user or task state, and explicit answer criteria. Classical retrieval-augmented generation (RAG) usually treats grounding as a fixed retrieve-then-read step in which a query is matched against a corpus and the generator reads the returned passages. This control flow is rigid when the same surface question requires different evidence, response structure, or evaluation criteria across situations. We propose \textsc{MARTC} (Multi-Agent Retrieval with Task-State Control), a multi-agent retrieval framework that treats RAG as structured prompt construction rather than query-only passage lookup. A supervisory router decides which context requirement should dominate the prompt (planning, criteria, adaptation, or evidence) and whether retrieval should run; LLM-backed planning, state diagnosis, criteria analysis, and conditional retrieval prepare structured context blocks; and all intermediate outputs are reassembled into one augmented prompt for a fixed generator followed by one critique/revision pass. We instantiate and evaluate \textsc{MARTC} in educational tutoring, a setting where evidence, learner-visible state, and answer criteria must be coordinated. Controlled validation on two educational benchmarks under matched backbone, corpus, reranker, and response cap shows that \textsc{MARTC} improves quality while reducing token use, with additional latency and model-call reductions in some settings.
@@ -124,7 +125,7 @@ R(x)=
 where $R(x)$ is the regime-selection function.
 %The priority order is intentional: sequence first sets the answer skeleton, criteria then constrain evaluation, state shapes the delivery, and evidence remains the default grounding route when no stronger prompt structure is required.
 
-In addition to selecting the pedagogical regime, the supervisor also makes a binary retrieval decision, denoted by $G(x)$ to determine whether external evidence should be retrieved and added to the final prompt. needed~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}:
+In addition to selecting the pedagogical regime, the supervisor also makes a binary retrieval decision, denoted by $G(x)$, to determine whether external evidence should be retrieved and added to the final prompt~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}:
 \begin{equation}
 G(x)=
 \begin{cases}
