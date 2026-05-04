@@ -82,9 +82,9 @@ The only user-facing output is the final answer $y$. All other variables are int
 MARTC also maintains two bounded context containers. Tool observations $T$ store outputs from allowed local inspection tools, and the evidence bundle $D$ stores retrieved snippets when retrieval is activated. The caps define the maximum work allowed at each stage: $K$ limits queries in $P$, $Q$ limits retrieved chunks and tool observations, $L$ limits evidence length, and $N$ limits final response tokens. These definitions are introduced here so later stages have a clear contract: routing decides what kind of context is needed, specialists fill the appropriate slots, retrieval optionally fills $D$, and prompt assembly combines the slots into one augmented generator prompt. This prevents topic, state, criteria, and evidence needs from being compressed into a single long retrieval query~\cite{liu2026agenttutor,borchers2025adaptivity}.
 
 \subsection{Supervisor Routing}
-The supervisory router is responsible for mapping each input sample to a pedagogical regime and activating the corresponding specialist agents. Given an input sample, the router examines the visible question, optional context, dialogue history, learner-state information, rubric or criteria text, and task metadata. It then estimates four types of context need: planning, criteria feedback, learner-state adaptation, and evidence grounding.
+The supervisory router is responsible for mapping each input sample to a pedagogical regime and activating the corresponding specialist agents. Given an input sample, the router examines the visible question, optional context, dialogue history, learner-state information, rubric or criteria text, and task metadata. It then estimates four types of context need: planning, criteria feedback, learner-state adaptation, and instructional-material grounding.
 
-These needs correspond to four regimes. Planning (PL) is selected when the response requires an ordered instructional structure, such as lesson planning, step sequencing, or exercise design. Criteria Feedback (CF) is selected when the response must be judged against explicit requirements, such as grading rubrics, scoring rules, or required feedback fields. Adaptive Response (AR) is selected when the same content should be explained differently depending on the learner’s visible state, such as grade level, prior confusion, weak points, or preferred explanation style. Instructional Material Grounding (EG) is selected when the response should be supported by external instructional materials, such as textbook chapters, reference documents, or worked examples.
+These needs correspond to four regimes. Planning (PL) is selected when the response requires an ordered instructional structure, such as lesson planning, step sequencing, or exercise design. Criteria Feedback (CF) is selected when the response must be judged against explicit requirements, such as grading rubrics, scoring rules, or required feedback fields. Adaptive Response (AR) is selected when the same content should be explained differently depending on the learner’s visible state, such as grade level, prior confusion, weak points, or preferred explanation style. Instructional Material Grounding (IM) is selected when the response should be supported by external instructional materials, such as textbook chapters, reference documents, or worked examples.
 
 To make this routing decision transparent and training-free, MARTC uses cue-based scores rather than a learned classifier. The route first constructs a routing string b(x) by concatenating the textual fields that are visible before generation:
 \begin{equation}
@@ -92,8 +92,8 @@ b(x)=\mathrm{concat}(q,c,r,h),
 \end{equation}
 where $\mathrm{concat}(\cdot)$ denotes the normalization and concatenation process used to form a single routing string. Images remain available to the downstream components, but they are not converted into the textual routing score.
 
-The router then evaluates cue families $j\in\{\mathrm{ev},\mathrm{cr},\mathrm{pl},\mathrm{ad}\}$, corresponding to instructional material grounding, criteria feedback, planning, and adaptation. Each family has keyword set $W_j$; let $M_j(x)$ be the number of cues from $W_j$ in $b(x)$. The normalized cue score is
-%These are response-construction needs, not benchmark labels. Evidence cues ask for source support; criteria cues ask for judgment against requirements; planning cues ask for ordered actions; and adaptation cues indicate state-aware delivery.
+The router then evaluates cue families $j\in\{\mathrm{im},\mathrm{cr},\mathrm{pl},\mathrm{ad}\}$, corresponding to instructional material grounding, criteria feedback, planning, and adaptation. Each family has keyword set $W_j$; let $M_j(x)$ be the number of cues from $W_j$ in $b(x)$. The normalized cue score is
+%These are response-construction needs, not benchmark labels. Instructional-material cues ask for source support; criteria cues ask for judgment against requirements; planning cues ask for ordered actions; and adaptation cues indicate state-aware delivery.
 \begin{equation}
 s_j(x)=\frac{M_j(x)}{|W_j|},
 \end{equation}
@@ -102,14 +102,14 @@ where $|W_j|$ is the size of the $jth$ cue-family.
 The routing thresholds are introduced to prevent weak or incidental cue matches from changing the system behavior. Because the router is training-free, these thresholds serve as transparent control parameters rather than learned decision boundaries. The general threshold $\tau_{\rm mid}$ requires repeated cues before a context need is activated. The planning threshold $\tau_{\rm plan}$ is set more strictly because selecting the planning regime changes the response structure, not only its content. The retry threshold $\tau_2$ is reserved for fallback retrieval and is therefore used only when the first retrieval attempt fails but the evidence need remains strong.
 
 Based on these cues and thresholds, the supervisor assigns the pedagogical regime as follows:
-%The regime is then selected by comparing the cure with fixed thresholds. a prompt-priority decision made before retrieval. The regimes are designed around four common ways a grounded answer can fail before generation: it may need an ordered procedure, an explicit standard for judgment, adaptation to visible user state, or source-backed evidence. Planning (PL) is used when the answer structure itself is the main constraint, such as when steps, dependencies, or subgoals must be organized before evidence is inserted. Criteria feedback (CF) is used when correctness depends on a rubric, grading rule, or stated requirement; here the answer must first know what it is being judged against. Adaptive response (AR) is used when the same content should be delivered differently because of visible user/task state. Evidence grounding (EG) is the default regime when no stronger structural constraint is detected, because the safest action is then to ground the response in source material. Thus PL, CF, AR, and EG are not task labels; they are prompt-allocation priorities. Because needs can overlap, $R(x)$ is selected by
+%The regime is then selected by comparing the cure with fixed thresholds. a prompt-priority decision made before retrieval. The regimes are designed around four common ways a grounded answer can fail before generation: it may need an ordered procedure, an explicit standard for judgment, adaptation to visible user state, or instructional-material support. Planning (PL) is used when the answer structure itself is the main constraint, such as when steps, dependencies, or subgoals must be organized before evidence is inserted. Criteria feedback (CF) is used when correctness depends on a rubric, grading rule, or stated requirement; here the answer must first know what it is being judged against. Adaptive response (AR) is used when the same content should be delivered differently because of visible user/task state. Instructional Material Grounding (IM) is the default regime when no stronger structural constraint is detected, because the safest action is then to ground the response in source material. Thus PL, CF, AR, and IM are not task labels; they are prompt-allocation priorities. Because needs can overlap, $R(x)$ is selected by
 \begin{equation}
 R(x)=
 \begin{cases}
 \mathrm{PL}, & s_{\rm pl}\ge s_{\rm cr},\ s_{\rm pl}\ge s_{\rm ad},\ s_{\rm pl}\ge\tau_{\rm plan},\\
 \mathrm{CF}, & s_{\rm cr}\ge s_{\rm ad},\ s_{\rm cr}\ge\tau_{\rm mid},\\
 \mathrm{AR}, & s_{\rm ad}\ge \tau_{\rm mid},\\
-\mathrm{EG}, & \mathrm{otherwise}.
+\mathrm{IM}, & \mathrm{otherwise}.
 \end{cases}
 \end{equation}
 where $R(x)$ is the regime-selection function.
@@ -119,15 +119,15 @@ In addition to selecting the pedagogical regime, the supervisor also makes a bin
 \begin{equation}
 G(x)=
 \begin{cases}
-1, & s_{\rm ev}\ge \tau_{\rm mid}\ \mathrm{or}\ R(x)=\mathrm{EG},\\
+1, & s_{\rm im}\ge \tau_{\rm mid}\ \mathrm{or}\ R(x)=\mathrm{IM},\\
 0, & \mathrm{otherwise}.
 \end{cases}
 \end{equation}
-Thus, retrieval is activated if the evidence cue score is high enough, or if the selected regime is Instructional Grounding. Otherwise, the system does not retrieve external passages.
+Thus, retrieval is activated if the instructional-material cue score is high enough, or if the selected regime is Instructional Material Grounding. Otherwise, the system does not retrieve external passages.
 % \begin{equation}
 % G_2(x)=
 % \begin{cases}
-% 1, & D_0\ \mathrm{is\ empty\ and}\ s_{\rm ev}\ge \tau_2,\\
+% 1, & D_0\ \mathrm{is\ empty\ and}\ s_{\rm im}\ge \tau_2,\\
 % 0, & \mathrm{otherwise}.
 % \end{cases}
 % \end{equation}
@@ -147,11 +147,11 @@ In the post-generation stage, the critic agent operates after the tutor generate
 
 The key point is that each regime changes how the tutoring brief is constructed. MARTC always begins with a default task prompt containing the original input and general tutoring requirements. When a regime is activated, MARTC adds regime-specific context blocks to the tutoring brief.
 
-In PL, the planner provides the main organizing structure, such as the instructional goal, step sequence, or response strategy. In CF, the criteria agent defines the evaluation standard, and the critic later checks whether the generated response satisfies it. In AR, the diagnoser supplies the learner-state summary that shapes tone, depth, scaffolding, and feedback. In EG, the planner formulates scoped search intent, and the retriever supplies instructional-material evidence when the retrieval gate is open. The final tutor prompt is assembled from the default task prompt plus the selected regime, plan, learner-state summary, criteria summary, retrieved evidence when available, and task instructions.
+In PL, the planner provides the main organizing structure, such as the instructional goal, step sequence, or response strategy. In CF, the criteria agent defines the evaluation standard, and the critic later checks whether the generated response satisfies it. In AR, the diagnoser supplies the learner-state summary that shapes tone, depth, scaffolding, and feedback. In IM, the planner formulates scoped search intent, and the retriever supplies instructional-material evidence when the retrieval gate is open. The final tutor prompt is assembled from the default task prompt plus the selected regime, plan, learner-state summary, criteria summary, retrieved evidence when available, and task instructions.
 
 This agent-regime design avoids forcing all tutoring needs into a single retrieval query. Instead of embedding one long query containing the topic, learner state, rubric, response goal, and evidence need, MARTC decomposes these requirements into structured prompt blocks. Retrieval is guided by clearer search intent, while learner-state and criteria information remain available as separate context for generation and post-generation critique.
 
-%After routing, the coordinator has two control signals, not an answer. The regime $R$ decides which constraint receives prompt priority: ordered steps for PL, evaluation requirements for CF, user/task adaptation for AR, or source support for EG. Thus $R$ changes the instructions sent to the specialists and the order of blocks in the final prompt. The gate $G$ decides whether the brief should be connected to the corpus retriever. If $G=1$, MARTC will search external resources after the specialists finish; if $G=0$, it will assemble the prompt from the brief, tool observations, and inline context without adding retrieved chunks.
+%After routing, the coordinator has two control signals, not an answer. The regime $R$ decides which constraint receives prompt priority: ordered steps for PL, evaluation requirements for CF, user/task adaptation for AR, or instructional-material support for IM. Thus $R$ changes the instructions sent to the specialists and the order of blocks in the final prompt. The gate $G$ decides whether the brief should be connected to the corpus retriever. If $G=1$, MARTC will search external resources after the specialists finish; if $G=0$, it will assemble the prompt from the brief, tool observations, and inline context without adding retrieved chunks.
 
 %MARTC then builds the brief through LLM-backed specialist agents inspired by tool-using and multi-agent systems~\cite{yao2023react,wu2024autogen}. Each active specialist receives the same standardized entry $x$, the regime $R$, the gate $G$, and a bounded tool set $\mathcal{U}$. The planner returns $p=(a,P)$, where $a$ is a response strategy and $P$ is a capped list of search queries. $P$ is the bridge from agents to retrieval: it is consumed by the retriever only when $G=1$; otherwise it remains a plan block for the generator. The state diagnoser returns $\ell$, which tells the generator and critic what visible user/task state should shape explanation depth and tone. The criteria analyst returns $u$, which tells the generator and critic what requirements the answer must satisfy; when no explicit criteria are present and $R\ne\mathrm{CF}$, $u$ is filled by a default checklist rather than by an extra LLM call.
 
@@ -191,7 +191,7 @@ This agent-regime design avoids forcing all tutoring needs into a single retriev
 \multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Require:} entry $x=(q,o,c,h,r,v)$, caps $K,Q,L,N$, index $\mathcal{I}$, tools $\mathcal{U}$, thresholds $(\tau_{\rm mid},\tau_{\rm plan})$.}\\
 \multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Return:} answer $y$ and internal fields $(R,G,p,\ell,u,T,D)$.}\\
 \midrule
-1: & $b\leftarrow \mathrm{concat}(q,c,r,h)$; $(s_{\rm ev},s_{\rm cr},s_{\rm pl},s_{\rm ad})\leftarrow\mathrm{CueScores}(b)$\\
+1: & $b\leftarrow \mathrm{concat}(q,c,r,h)$; $(s_{\rm im},s_{\rm cr},s_{\rm pl},s_{\rm ad})\leftarrow\mathrm{CueScores}(b)$\\
 2: & $R\leftarrow R(x)$ using Eq. (4); $G\leftarrow G(x)$ using Eq. (5)\\
 3: & \textbf{parallel do}\\
 4: & \quad $p=(a,P),T_p\leftarrow\mathrm{Planner}(x,R,G,\mathcal{U})$\\
