@@ -139,8 +139,6 @@ In PL, the planner provides the main organizing structure, such as the instructi
 
 This agent-regime design avoids forcing all tutoring needs into a single retrieval query. Instead of embedding one long query containing the topic, learner state, rubric, response goal, and instructional-material need, MARTC decomposes these requirements into structured prompt blocks. Retrieval is guided by clearer search intent, while learner-state and criteria information remain available as separate context for generation and post-generation critique.
 
-Algorithm~1 summarizes this inference flow: normalize the input, route the request, run the specialist agents in parallel, retrieve instructional materials only when $G(x)=1$, assemble one generator prompt, and apply one critic pass.
-
 \begin{center}
 \centering
 \scriptsize
