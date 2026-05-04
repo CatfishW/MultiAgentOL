@@ -248,7 +248,7 @@ Data & Metric & RAG & Agentic & MARTC & $\Delta$ \\
 
 \subsection{Discussion}
 
-The results indicate that MARTC's gains come from controlling what enters the generator prompt, not from adding more context indiscriminately. TutorEval gains in tutor-hit and rubric coverage suggest that planner, criteria, and diagnoser slots preserve teaching-point and requirement coverage when instructional materials are long. EduBench gains in EB12D and rubric coverage show that task-state control is useful when requests mix scenario description, answer constraints, and desired feedback style. Agentic RAG is competitive on some quality metrics, but often spends more tokens and time because specialist outputs are not filtered through MARTC's retrieval gate and prompt-priority regime.
+The results indicate that MARTC's gains come from controlling what enters the generator prompt, not from adding more context indiscriminately. TutorEval gains in tutor-hit and rubric coverage suggest that planner, criteria, and diagnoser slots preserve teaching-point and requirement coverage when instructional materials are long. EduBench gains in EB12D and rubric coverage show that task-state control is useful when requests mix scenario description, answer constraints, and desired feedback style. Agentic RAG is competitive on some quality metrics, but often spends more tokens and time because specialist outputs are not filtered through MARTC's retrieval gate and response regime.
 
 The mixed EduAlign result should be interpreted narrowly: it measures agreement with extracted consensus scores, while MARTC is optimized to assemble criteria-aware responses rather than reproduce a score string. By contrast, rubric coverage and EB12D directly test whether required feedback content appears, and both improve consistently. The resource results show the trade-off: scoped planner queries and the retrieval gate usually reduce tokens and reduce 27B latency, but 27B TutorEval uses slightly more tokens because the larger model produces fuller explanations. Thus, MARTC is a controller for when and how instructional materials enter the prompt, not a universal lower-token guarantee.
 
@@ -258,7 +258,7 @@ The mixed EduAlign result should be interpreted narrowly: it measures agreement 
 \textsc{MARTC} reframes grounding as supervised context construction rather than query-only passage lookup. With shared infrastructure, its tutoring instantiation improves fixed-generator quality and efficiency by coordinating visible task state, answer criteria, and conditional instructional materials before generation. Future work should extend beyond automatic English-only evaluation to human and multi-turn studies, stronger controller baselines, learned router calibration, profile-aware reranking, privacy-preserving state inference, and deployment with appropriate data-governance and human-oversight safeguards.
 
 \section*{ACKNOWLEDGMENT}
-The authors gratefully acknowledge the support of Google.
+The authors gratefully acknowledge the support of Google Academic Research Awards.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references/references}
