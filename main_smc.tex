@@ -246,21 +246,16 @@ Data & Metric & RAG & Agentic & MARTC & $\Delta$ \\
 \begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}Agentic is the 27B specialist-coordination baseline without MARTC's task-state retrieval control. TutorEval uses $n{=}400$ paired samples; EduBench uses $n{=}328$ unique paired rows after duplicate public IDs in the 400-example slice are collapsed. $\Delta$ and significance compare paired 27B MARTC--RAG only: $^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency and tokens.\end{minipage}
 \end{table}
 
-\subsection{Trade-offs}
+\subsection{Discussion}
 
-For TutorEval, the 27B paired CIs are positive for Token-F1, tutor-hit coverage, rubric coverage, and latency. For EduBench, EB12D and rubric coverage improve, latency and token use decrease, and the small classical-RAG EduAlign edge is not statistically reliable.
+The results indicate that MARTC's gains come from controlling what enters the generator prompt, not from adding more context indiscriminately. TutorEval gains in tutor-hit and rubric coverage suggest that planner, criteria, and diagnoser slots preserve teaching-point and requirement coverage when instructional materials are long. EduBench gains in EB12D and rubric coverage show that task-state control is useful when requests mix scenario description, answer constraints, and desired feedback style. Agentic RAG is competitive on some quality metrics, but often spends more tokens and time because specialist outputs are not filtered through MARTC's retrieval gate and prompt-priority regime.
 
-\textsc{MARTC} can use more modules than classical RAG, so resource cost must be reported. Scoped planner queries and the retrieval gate reduce token use in 4B and still reduce latency in 27B, but 27B TutorEval shows that better coverage does not always mean fewer tokens. Thus \textsc{MARTC} decides what grounding a request needs; it is not a universal retrieval replacement.
-
-\section{LIMITATIONS}
-\label{sec:limitations}
-
-The study validates a framework rather than a deployable assistant: evaluation is automatic and English-only, and user or task state is inferred from visible prompt/dialogue fields. Deployment requires privacy safeguards, bias checks, data governance, human oversight, and domain-specific outcome studies.
+The mixed EduAlign result should be interpreted narrowly: it measures agreement with extracted consensus scores, while MARTC is optimized to assemble criteria-aware responses rather than reproduce a score string. By contrast, rubric coverage and EB12D directly test whether required feedback content appears, and both improve consistently. The resource results show the trade-off: scoped planner queries and the retrieval gate usually reduce tokens and reduce 27B latency, but 27B TutorEval uses slightly more tokens because the larger model produces fuller explanations. Thus, MARTC is a controller for when and how instructional materials enter the prompt, not a universal lower-token guarantee.
 
 \section{CONCLUSION}
 \label{sec:conclusion}
 
-\textsc{MARTC} reframes grounding as supervised context construction rather than query-only passage lookup. With shared infrastructure, the educational tutoring instantiation improves fixed-generator quality and efficiency over classical RAG by coordinating visible task state, answer criteria, and conditional instructional materials before generation. Future work should test stronger controller baselines, other instructional settings and non-educational domains, human and multi-turn outcomes, learned router calibration, profile-aware reranking, and privacy-preserving state inference.
+\textsc{MARTC} reframes grounding as supervised context construction rather than query-only passage lookup. With shared infrastructure, its tutoring instantiation improves fixed-generator quality and efficiency by coordinating visible task state, answer criteria, and conditional instructional materials before generation. Future work should extend beyond automatic English-only evaluation to human and multi-turn studies, stronger controller baselines, learned router calibration, profile-aware reranking, privacy-preserving state inference, and deployment with appropriate data-governance and human-oversight safeguards.
 
 \section*{ACKNOWLEDGMENT}
 The authors gratefully acknowledge the support of Google.
