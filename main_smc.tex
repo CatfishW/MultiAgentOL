@@ -22,8 +22,10 @@ MARTC: Multi-Agent Retrieval with \\
 Task-State Control
 }
 
-\author{Anonymous Authors%
-\thanks{Submitted to the 2026 IEEE International Conference on Systems, Man, and Cybernetics (SMC). Single-blind review.}%
+\author{Yanlai Wu, Xu Du, Wendong Xiao, and Ying Tang, Fellow, IEEE%
+\thanks{Yanlai Wu and Ying Tang are with the Department of Electrical and Computer Engineering, Rowan University, Glassboro, NJ 08028 USA (e-mail: wuyanl37@rowan.edu; tang@rowan.edu). Ying Tang is the corresponding author.}%
+\thanks{Xu Du is with Montclair State University (e-mail: dux3@mail.montclair.edu).}%
+\thanks{Wendong Xiao is with the School of Automation and Electrical Engineering, University of Science and Technology Beijing, Beijing 100083, P. R. China (e-mail: wdxiao@ustb.edu.cn).}%
 }
 
 \begin{document}
@@ -66,7 +68,7 @@ Therefore, we introduce \textsc{MARTC} (Multi-Agent Retrieval with Task-State Co
 \section{METHODOLOGY}
 \label{sec:methodology}
 
-Specialized assistance requires more than answering a question correctly. A system often needs to infer what the user is asking, what state or misconception is visible, what level of explanation is appropriate, what criteria should be satisfied, and whether external instructional materials are needed. These requirements make the task a context-construction problem before it is a generation problem. Simply appending these constraints to a query in classical RAG can overload the query representation, blur search intent, and retrieve instructional materials that are topically relevant but not appropriate for the requested response. Although adaptive RAG methods start to address this issue, they tend to target one control problem at a time. This motivates a unified multi-agent framework that coordinates user state, task goals, answer criteria, and instructional-material needs before generation. \textsc{MARTC} is designed for this need: it treats RAG as coordinated context construction rather than query-only passage lookup. As shown in Fig.~\ref{fig:martc_framework}, MARTC consists of three main components: input normalization, supervisor routing, and specialist agent coordination.
+Specialized assistance requires more than answering a question correctly. A system often needs to infer what the user is asking, what state or misconception is visible, what level of explanation is appropriate, what criteria should be satisfied, and whether external instructional materials are needed. These requirements make the task a context-construction problem before it is a generation problem. Simply appending these constraints to a query in classical RAG can overload the query representation, blur search intent, and retrieve instructional materials that are topically relevant but not appropriate for the requested response. Although adaptive RAG methods start to address this issue, they tend to target one control problem at a time. This motivates a unified multi-agent framework that coordinates user state, task goals, answer criteria, and instructional-material needs before generation. \textsc{MARTC} is designed for this need: it treats RAG as coordinated context construction rather than query-only passage lookup. As shown in Fig.~\ref{fig:martc_framework}, MARTC consists of three main components: input normalization, supervisor routing, and specialist agent coordination. Algorithm~1 gives the corresponding inference procedure from normalized input to final answer.
 
 \begin{figure*}[t]
 \centering
@@ -259,6 +261,9 @@ The study validates a framework rather than a deployable assistant: evaluation i
 \label{sec:conclusion}
 
 \textsc{MARTC} reframes grounding as supervised context construction rather than query-only passage lookup. With shared infrastructure, the educational tutoring instantiation improves fixed-generator quality and efficiency over classical RAG by coordinating visible task state, answer criteria, and conditional instructional materials before generation. Future work should test stronger controller baselines, other instructional settings and non-educational domains, human and multi-turn outcomes, learned router calibration, profile-aware reranking, and privacy-preserving state inference.
+
+\section*{ACKNOWLEDGMENT}
+The authors gratefully acknowledge the support of Google.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references/references}
