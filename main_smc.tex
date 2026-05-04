@@ -17,17 +17,6 @@
 \usepackage{xcolor}
 \usepackage{adjustbox}
 
-\setlength{\textfloatsep}{4pt plus 1pt minus 2pt}
-\setlength{\floatsep}{4pt plus 1pt minus 2pt}
-\setlength{\dbltextfloatsep}{4pt plus 1pt minus 2pt}
-\setlength{\dblfloatsep}{4pt plus 1pt minus 2pt}
-\setlength{\intextsep}{4pt plus 1pt minus 2pt}
-\setlength{\abovedisplayskip}{4pt plus 1pt minus 2pt}
-\setlength{\belowdisplayskip}{4pt plus 1pt minus 2pt}
-\setlength{\abovedisplayshortskip}{2pt plus 1pt minus 1pt}
-\setlength{\belowdisplayshortskip}{2pt plus 1pt minus 1pt}
-\setlength{\abovecaptionskip}{3pt}
-\setlength{\belowcaptionskip}{0pt}
 \title{\LARGE \bf
 MARTC: Multi-Agent Retrieval with \\
 Task-State Control
@@ -39,13 +28,14 @@ Task-State Control
 
 \begin{document}
 \maketitle
-\raggedbottom
+\thispagestyle{empty}
+\pagestyle{empty}
 
 \begin{abstract}
 Large language models can generate fluent responses, but specialized assistance like tutoring requires grounding in external evidence, visible user or task state, and explicit answer criteria. Classical retrieval-augmented generation (RAG) usually treats grounding as a fixed retrieve-then-read step in which a query is matched against a corpus and the generator reads the returned passages. This control flow is rigid when the same surface question requires different evidence, response structure, or evaluation criteria across situations. We propose \textsc{MARTC} (Multi-Agent Retrieval with Task-State Control), a multi-agent retrieval framework that treats RAG as structured prompt construction rather than query-only passage lookup. A supervisory router decides which context requirement should dominate the prompt (planning, criteria, adaptation, or evidence) and whether retrieval should run; LLM-backed planning, state diagnosis, criteria analysis, and conditional retrieval prepare structured context blocks; and all intermediate outputs are reassembled into one augmented prompt for a fixed generator followed by one critique/revision pass. We instantiate and evaluate \textsc{MARTC} in educational tutoring, a setting where evidence, learner-visible state, and answer criteria must be coordinated. Controlled validation on two educational benchmarks under matched backbone, corpus, reranker, and response cap shows that \textsc{MARTC} improves quality while reducing token use, with additional latency and model-call reductions in some settings.
 \end{abstract}
 
-\section{Introduction}
+\section{INTRODUCTION}
 Large language models (LLMs) are increasingly used as specialized assistants because they can generate explanations, diagnose errors, and provide feedback. However, useful assistance cannot rely only on parametric knowledge. Knowledge-grounded dialogue has long shown the value of external evidence~\cite{dinan2019wizard}; many assistance settings require grounding in curated resources, user-visible context, task history, and evaluation criteria to avoid fluent but misaligned guidance. Educational tutoring is a concrete and demanding instance of this problem: a tutor must coordinate course materials, worked examples, rubrics, learner-visible context, and dialogue history~\cite{chevalier2024sciencetutors,liu2026agenttutor}.
 
 Classical retrieval-augmented generation (RAG) has therefore become the default grounding mechanism~\cite{lewis2020rag}. In classical RAG, the query is embedded, the top-$k$ most similar passages are retrieved, and the LLM generates a response conditioned on those passages. Thus, relevance depends heavily on retrieval quality and query representation~\cite{thakur2021beir}.
@@ -60,7 +50,7 @@ Therefore, we introduce \textsc{MARTC} (Multi-Agent Retrieval with Task-State Co
 
 \noindent\textbf{Contributions.} (i) We propose \textsc{MARTC}, a multi-agent retrieval framework with routing, specialist context construction, bounded tools, conditional retrieval, generation, and critique. (ii) We formalize transparent training-free controls over task state, answer criteria, and external evidence. (iii) We instantiate the framework for educational tutoring and validate it against classical RAG and Agentic RAG baselines under paired infrastructure.
 
-\section{Related Work}
+\section{RELATED WORK}
 
 \noindent\textbf{RAG controllers.} Classical RAG fixes retrieval as the first controller: the query is matched to passages, and generation conditions on returned evidence~\cite{lewis2020rag}. This ordering is brittle when the same surface query should be constrained by visible state, answer criteria, or response form before evidence is selected. Recent variants improve specific control points. Self-RAG learns reflection tokens for retrieval and critique, so it cannot be adopted without training or instruction tuning the backbone~\cite{asai2024selfrag}. CRAG evaluates already-retrieved documents and optionally expands to web search, so it corrects retrieval after the initial query rather than deciding what constraints should shape that query~\cite{yan2024crag}. Adaptive-RAG trains a smaller model to classify question complexity and choose among QA strategies, which controls reasoning depth but not task state, criteria, or prompt assembly~\cite{jeong2024adaptiverag}. TARG is training-free and efficient, but its decision is only a retrieve-or-skip gate computed from a no-context draft; it does not build structured context before retrieval~\cite{wang2026targ}. RAG diagnostics separate retrieval, ranking, and generation errors, but they diagnose failures rather than provide a controller that routes, budgets, retrieves, and assembles context~\cite{ru2024ragchecker}. The remaining gap is not another retriever; it is a controller that organizes constraints before retrieval.
 
@@ -68,7 +58,7 @@ Therefore, we introduce \textsc{MARTC} (Multi-Agent Retrieval with Task-State Co
 
 \noindent\textbf{Educational agents and evaluation.} Educational systems such as AgentTutor assess learners, maintain memory, and adapt teaching strategies across multi-turn instruction~\cite{liu2026agenttutor}; evaluation work measures whether a produced tutor response is pedagogically useful~\cite{maurya2025aitutoreval,chevalier2024sciencetutors,xu2025edubench,macina2025mathtutorbench,srinivasa2025tutorbench}. These works motivate our validation setting because they show that visible state and answer criteria matter. However, complete tutoring policies entangle retrieval quality with memory, dialogue policy, and teaching strategy. They therefore do not isolate the question MARTC targets: whether context construction itself can be made more flexible and efficient under a fixed generator.
 
-\section{Methodology}
+\section{METHODOLOGY}
 \label{sec:methodology}
 
 As stated earlier, educational tutoring requires more than answering a question correctly. A tutor often needs to decide what the learner is asking, what concept or misconception is involved, what level of explanation is appropriate, what criteria should be satisfied, and whether external instructional evidence is needed. These requirements make tutoring a context-construction problem before it is a generation problem. Simply appending these constraints to a query in classical RAG can overload the query representation, blur search intent, and retrieve evidence that is topically relevant but not pedagogically appropriate. Although adaptive RAG methods start to address this issue, they tend to target one control problem at a time. This motivates a unified multi-agent framework that coordinates learner state, instructional goals, answer criteria, and evidence needs before generation. \textsc{MARTC} is then designed to address this need, which treats RAG as coordinated context construction rather than query-only passage lookup. As shown in Fig. XX, MARTC consists of three main components: input normalization, supervisor routing, and specialist agent and coordination.
@@ -221,7 +211,7 @@ This agent-regime design avoids forcing all tutoring needs into a single retriev
 \end{tabular}
 \end{center}
 
-\section{Validation Experiments}
+\section{VALIDATION EXPERIMENTS}
 \label{sec:results}
 
 We validate the framework on two public educational benchmarks used as tutoring-focused stress tests. TutorEval~\cite{chevalier2024sciencetutors} pairs science tutoring questions with long STEM chapters and teaching key points; EduBench~\cite{xu2025edubench} covers diverse educational scenarios with prompts, metadata, and reference model predictions that our adapter converts into score and rubric supervision.
@@ -300,20 +290,17 @@ For TutorEval, the 27B paired CIs are positive for Token-F1, tutor-hit coverage,
 
 \textsc{MARTC} can use more modules than classical RAG, so resource cost must be reported. Scoped planner queries and the retrieval gate reduce token use in 4B and still reduce latency in 27B, but 27B TutorEval shows that better coverage does not always mean fewer tokens. Thus \textsc{MARTC} decides what grounding a request needs; it is not a universal retrieval replacement.
 
-\section{Limitations}
+\section{LIMITATIONS}
 \label{sec:limitations}
 
 The study validates a framework rather than a deployable assistant: evaluation is automatic and English-only, and user or task state is inferred from visible prompt/dialogue fields. Deployment requires privacy safeguards, bias checks, data governance, human oversight, and domain-specific outcome studies.
 
-\section{Conclusion}
+\section{CONCLUSION}
 \label{sec:conclusion}
 
 \textsc{MARTC} reframes grounding as supervised context construction rather than query-only passage lookup. With shared infrastructure, the educational tutoring instantiation improves fixed-generator quality and efficiency over classical RAG by coordinating visible task state, answer criteria, and conditional evidence before generation. Future work should test stronger controller baselines, other instructional settings and non-educational domains, human and multi-turn outcomes, learned router calibration, profile-aware reranking, and privacy-preserving state inference.
 
-\begingroup
-\renewcommand{\footnotesize}{\fontsize{7.25}{7.65}\selectfont}
 \bibliographystyle{IEEEtran}
 \bibliography{references/references}
-\endgroup
 
 \end{document}
