@@ -72,7 +72,7 @@ Specialized assistance requires more than answering a question correctly. A syst
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=0.96\textwidth]{figures/MARTC_framework_cropped.png}
+\includegraphics[width=0.96\textwidth]{figures/MARTC_new_fixed2.png}
 \caption{Main framework of \textsc{MARTC}. A normalized entry $x=(q,o,c,h,r,v)$ is scored by the supervisor router, which selects the response regime $R(x)\in\{\mathrm{PL},\mathrm{CF},\mathrm{AR},\mathrm{IM}\}$ and retrieval gate $G(x)$. LLM-based specialist agents then produce structured prompt blocks: planner strategy $a$ and search queries $P$, criteria summary $u$, and learner-state summary $\ell$. The coordinator merges these blocks with retrieved instructional-material snippets into instructional-material bundle $D$ when $G(x)=1$, then sends one augmented prompt to the generator and critic.}
 \label{fig:martc_framework}
 \end{figure*}
