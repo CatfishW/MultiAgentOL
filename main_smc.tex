@@ -69,7 +69,9 @@ Therefore, we introduce \textsc{MARLET} (Multi-Agent Retrieval with Lightweight 
 \section{Methodology}
 \label{sec:methodology}
 
-\textsc{MARLET} turns one request into a grounded response by treating RAG as coordinated context construction. Every intermediate output becomes context for one final LLM prompt. Its design integrates three principles: route before retrieval, exchange structured records with fixed fields among LLM specialists, and retrieve evidence only after a response brief, the merged plan, state, and criteria record, specifies what should be searched.
+As stated earlier, educational tutoring requires more than answering a question correctly. A tutor often needs to decide what the learner is asking, what concept or misconception is involved, what level of explanation is appropriate, what criteria should be satisfied, and whether external instructional evidence is needed. These requirements make tutoring a context-construction problem before it is a generation problem. Simply appending these constraints to a query in classical RAG can overload the query representation, blur search intent, and retrieve evidence that is topically relevant but not pedagogically appropriate. Although adpative RAG methods start to address this issue, they tend to target one control problem at a time. This motivates a unified multi-agent framework that coordinates learner state, instructional goals, answer criteria, and evidence needs before generation.\textsc{MARLET} is then designed to address this need, which treats RAG as coordinated context construction rather than query-only passage lookup. As shown in Fig. XX, MARLET consists of five main components: input normalization, supervisor routing, specialist-agent coordination, conditional retrieval and evidence assembly, and tutor generation with critic revision.
+
+%Given an input tutoring sample, a supervisory router first determines the dominant pedagogical regime and decides which specialist components should contribute. Planner, diagnoser, criteria, retrieval, and critic agents then produce structured records that are assembled into a response brief for the final LLM tutor. In this design, retrieval is not the default first step; it is invoked only after the response brief clarifies what external evidence, if any, should be searched. The following subsections describe the input representation, routing mechanism, specialist-agent coordination, conditional retrieval, and final generation with critic revision. Every intermediate output becomes context for one final LLM prompt. Its design integrates three principles: route before retrieval, exchange structured records with fixed fields among LLM specialists, and retrieve evidence only after a response brief, the merged plan, state, and criteria record, specifies what should be searched.
 
 % The framework is configured through cue lexicons, default criteria, tools, and corpus resources; in this paper those components are instantiated for education. The flow remains standardize, route, run parallel specialists, execute bounded tools, retrieve conditionally, assemble one prompt, and critique once.
 
@@ -81,32 +83,34 @@ For one sample, \textsc{MARLET} first standardizes all visible fields into
 \begin{equation}
 x=(q,o,c,h,r,v).
 \end{equation}
-Here, $q$ is the question or task; $o$ answer options; $c$ inline context; $h$ recent interaction history; $r$ explicit criteria; and $v$ images. Empty fields are allowed, so the same representation covers factual questions, assessment, feedback, and planning.
+where $q$ is the question or task; $o$ answer options; $c$ inline context; $h$ recent interaction history; $r$ explicit criteria; and $v$ images. Empty fields are allowed, so the same representation covers factual questions, assessment, feedback, and planning.
 
-The only user-facing output is answer $y$. Internally, MARLET keeps the route choice, retrieval decision, evidence bundle $D$, and tool observations $T$. Planner strategy, state summary, criteria summary, $T$, and $D$ become prompt blocks. Caps keep inference bounded: $K$ for planner/retrieval queries, $Q$ for chunks/tool calls, $L$ for evidence length, and $N$ for response tokens.
+The only user-facing output is answer $y$. Internally, MARLET keeps the route choice, retrieval decision, evidence bundle $D$, and tool observations $T$. Planner output, state summary, criteria summary, $T$, and $D$ become prompt blocks. Caps keep inference bounded: $K$ for planner/retrieval queries, $Q$ for chunks/tool calls, $L$ for evidence length, and $N$ for response tokens.
 
-The core design choice is to avoid asking one retrieval query to carry every constraint. MARLET instead fills three structured slots. The \emph{planner} writes $p=(a,P)$. Here $a$ is a short operating strategy for the final answer writer, while $P=\{p_1,\ldots,p_m\}$, $m\le K$, is a list of short corpus-search queries. Thus the planner is neither the retriever nor the final answerer: it decides how the answer should be organized and what should be searched if retrieval opens. For example, a request that asks for feedback on a solution may yield a strategy such as ``find the error, compare with the criterion, give one next step,'' plus search queries for the expected solution rule and the stated criterion. The \emph{state diagnoser} writes state summary $\ell$, inferred only from $q$ and $h$. The \emph{criteria analyst} writes criteria summary $u$, preserving explicit criteria $r$ or supplying a short correctness/clarity/evidence/actionability checklist. This separates search, task state, and answer requirements~\cite{liu2026agenttutor,borchers2025adaptivity}.
+The core design choice is to avoid asking one retrieval query to carry every constraint. MARLET instead fills three structured slots. The \emph{planner} writes $p=(a,P)$, where $a$ is a short answer strategy and $P$ is a capped list of search queries that tell the retriever what to look for. The \emph{state diagnoser} writes state summary $\ell$, inferred only from $q$ and $h$. The \emph{criteria analyst} writes criteria summary $u$, preserving explicit criteria $r$ or supplying a short correctness/clarity/evidence/actionability checklist. This separates search, task state, and answer requirements~\cite{liu2026agenttutor,borchers2025adaptivity}.
 
 \subsection{Supervisor Routing}
+The supervisory router is responsible for mapping each input sample to a pedagogical regime and activating the corresponding specialist agents. Given an input sample, the router examines the visible question, optional context, dialogue history, learner-state information, rubric or criteria text, and task metadata. It then estimates four types of context need: planning, criteria feedback, learner-state adaptation, and evidence grounding.
 
-The supervisor begins with a routing string:
+These needs correspond to four regimes. Planning (PL) is selected when the response requires an ordered instructional structure, such as lesson planning, step sequencing, or exercise design. Criteria Feedback (CF) is selected when the response must be judged against explicit requirements, such as grading rubrics, scoring rules, or required feedback fields. Adaptive Response (AR) is selected when the same content should be explained differently depending on the learner’s visible state, such as grade level, prior confusion, weak points, or preferred explanation style. Instructional Material Grounding (EG) is selected when the response should be supported by external instructional materials, such as textbook chapters, reference documents, or worked examples.
+
+To make this routing decision transparent and training-free, MARLET uses cue-based scores rather than a learned classifier. The route first constructs a routing string b(x) by concatenating the textual fields that are visible before generation:
 \begin{equation}
 b(x)=\mathrm{concat}(q,c,r,h),
 \end{equation}
-where $\mathrm{concat}(\cdot)$ means that the question, inline context, criteria text, and interaction turns are joined into one normalized string. Images remain available to the final generator, but they are not converted into the textual routing score.
+where $\mathrm{concat}(\cdot)$ denotes the normalization and concatenation process used to form a single routing string. Images remain available to the downstream components, but they are not converted into the textual routing score.
 
-The router uses cue families $j\in\{\mathrm{ev},\mathrm{co},\mathrm{cr},\mathrm{pl},\mathrm{ad}\}$ for evidence, coordination, criteria, planning, and adaptation. These are response-construction needs, not benchmark labels. Evidence cues ask for source support; coordination cues mark multi-constraint workflow needs; criteria cues ask for judgment against requirements; planning cues ask for ordered actions; and adaptation cues indicate state-aware delivery. Each family has keyword set $W_j$; let $M_j(x)$ be the number of cues from $W_j$ in $b(x)$. The cue score is
+The router then evaluates cue families $j\in\{\mathrm{ev},\mathrm{cr},\mathrm{pl},\mathrm{ad}\}$, corresponding to instructional material grounding, criteria feedback, planning, and adaptation. Each family has keyword set $W_j$; let $M_j(x)$ be the number of cues from $W_j$ in $b(x)$. The normalized cue score is
+%These are response-construction needs, not benchmark labels. Evidence cues ask for source support; criteria cues ask for judgment against requirements; planning cues ask for ordered actions; and adaptation cues indicate state-aware delivery.
 \begin{equation}
-\tilde{s}_j(x)=\frac{M_j(x)}{|W_j|}, \qquad
-s_j(x)=\min(1,\tilde{s}_j(x)+\Delta_j(x)),
+s_j(x)=\frac{M_j(x)}{|W_j|},
 \end{equation}
-where $|W_j|$ is the cue-family size and $\Delta_j(x)$ is a small explicit-signal adjustment: explicit criteria increase the criteria score, dialogue history increases adaptation up to a cap, and inline context or images add small grounding/coordination signals. Thresholds are fixed hyperparameters, not probabilities: $\tau_{\rm mid}$ requires repeated cues, $\tau_{\rm plan}$ is stricter because planning changes response structure, and $\tau_2$ permits retry only for strong evidence cues. To apply to another domain, one mainly replaces $W_j$ and the default criteria.
+where $|W_j|$ is the size of the $jth$ cue-family.
 
-Concretely, the evidence family contains cues such as ``cite,'' ``source,'' ``evidence,'' ``reference,'' ``retrieval,'' and ``document''; the coordination family contains cues such as ``context,'' ``constraint,'' ``workflow,'' ``dialogue,'' and ``rubric''; the criteria family contains cues such as ``criteria,'' ``score,'' and ``feedback''; the planning family contains cues such as ``plan,'' ``sequence,'' ``schedule,'' and ``steps''; and the adaptation family contains cues such as ``beginner,'' ``confused,'' ``hint,'' ``student,'' and ``tutor.'' Each cue contributes at most once per family, so the score measures breadth of visible routing signals rather than term frequency. Explicit criteria add a small criteria bonus, dialogue history adds a bounded adaptation bonus, and inline context or images add small grounding/coordination bonuses. For example, if a request matches four evidence cues out of a twelve-cue evidence family, then $s_{\rm ev}=4/12$ before any context or modality bonus. If it also provides an explicit grading checklist and matches two of six criteria cues, then the criteria score becomes $s_{\rm cr}=2/6+\delta_{\rm crit}$, where $\delta_{\rm crit}$ is the configured explicit-criteria bonus. These scores are transparent control features, not learned probabilities.
+The routing thresholds are introduced to prevent weak or incidental cue matches from changing the system behavior. Because the router is training-free, these thresholds serve as transparent control parameters rather than learned decision boundaries. The general threshold $\tau_{\rm mid}$ requires repeated cues before a context need is activated. The planning threshold $\tau_{\rm plan}$ is set more strictly because selecting the planning regime changes the response structure, not only its content. The retry threshold $\tau_2$ is reserved for fallback retrieval and is therefore used only when the first retrieval attempt fails but the evidence need remains strong.
 
-The coordination score $s_{\rm co}$ is used when the generic router chooses among architecture families; within \textsc{MARLET}, the equations below use the remaining scores to set prompt priority and evidence use.
-
-The supervisor then chooses a response regime, a prompt-priority decision made before retrieval. The regimes are designed around four common ways a grounded answer can fail before generation: it may need an ordered procedure, an explicit standard for judgment, adaptation to visible user state, or source-backed evidence. Planning (PL) is used when the answer structure itself is the main constraint, such as when steps, dependencies, or subgoals must be organized before evidence is inserted. Criteria feedback (CF) is used when correctness depends on a rubric, grading rule, or stated requirement; here the answer must first know what it is being judged against. Adaptive response (AR) is used when the same content should be delivered differently because of visible user/task state. Evidence grounding (EG) is the default regime when no stronger structural constraint is detected, because the safest action is then to ground the response in source material. Thus PL, CF, AR, and EG are not task labels; they are prompt-allocation priorities. Because needs can overlap, $R(x)$ is selected by
+Based on these cues and thresholds, the supervisor assigns the pedagogical regime as follows:
+%The regime is then selected by comparing the cure with fixed thresholds. a prompt-priority decision made before retrieval. The regimes are designed around four common ways a grounded answer can fail before generation: it may need an ordered procedure, an explicit standard for judgment, adaptation to visible user state, or source-backed evidence. Planning (PL) is used when the answer structure itself is the main constraint, such as when steps, dependencies, or subgoals must be organized before evidence is inserted. Criteria feedback (CF) is used when correctness depends on a rubric, grading rule, or stated requirement; here the answer must first know what it is being judged against. Adaptive response (AR) is used when the same content should be delivered differently because of visible user/task state. Evidence grounding (EG) is the default regime when no stronger structural constraint is detected, because the safest action is then to ground the response in source material. Thus PL, CF, AR, and EG are not task labels; they are prompt-allocation priorities. Because needs can overlap, $R(x)$ is selected by
 \begin{equation}
 R(x)=
 \begin{cases}
@@ -116,9 +120,10 @@ R(x)=
 \mathrm{EG}, & \mathrm{otherwise}.
 \end{cases}
 \end{equation}
-The priority order is intentional: sequence first sets the answer skeleton, criteria then constrain evaluation, state shapes the delivery, and evidence remains the default grounding route when no stronger prompt structure is required.
+where $R(x)$ is the regime-selection function.
+%The priority order is intentional: sequence first sets the answer skeleton, criteria then constrain evaluation, state shapes the delivery, and evidence remains the default grounding route when no stronger prompt structure is required.
 
-Next, the supervisor uses a \emph{retrieval gate}: a binary control for whether external evidence enters the final prompt. Inspired by selective-retrieval research, MARLET integrates this idea as a prompt-allocation control that opens only when outside grounding is needed~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}:
+In addition to selecting the pedagogical regime, the supervisor also makes a binary retrieval decision, denoted by $G(x)$ to determine whether external evidence should be retrieved and added to the final prompt. needed~\cite{asai2024selfrag,jeong2024adaptiverag,wang2026targ}:
 \begin{equation}
 G(x)=
 \begin{cases}
@@ -126,15 +131,15 @@ G(x)=
 0, & \mathrm{otherwise}.
 \end{cases}
 \end{equation}
-Thus $G(x)=1$ runs retrieval; $G(x)=0$ builds the same prompt without external chunks. A stricter retry gate runs one raw-question retrieval pass only when the first bundle is empty:
-\begin{equation}
-G_2(x)=
-\begin{cases}
-1, & D_0\ \mathrm{is\ empty\ and}\ s_{\rm ev}\ge \tau_2,\\
-0, & \mathrm{otherwise}.
-\end{cases}
-\end{equation}
-where $D_0$ is the evidence bundle from the first retrieval attempt.
+Thus, retrieval is activated if the evidence cue score is high enough, or if the selected regime is Instructional Grounding. Otherwise, the system does not retrieve external passages.
+% \begin{equation}
+% G_2(x)=
+% \begin{cases}
+% 1, & D_0\ \mathrm{is\ empty\ and}\ s_{\rm ev}\ge \tau_2,\\
+% 0, & \mathrm{otherwise}.
+% \end{cases}
+% \end{equation}
+% where $D_0$ is the evidence bundle from the first retrieval attempt.
 
 % \begin{figure*}[t]
 % \centering
@@ -144,18 +149,28 @@ where $D_0$ is the evidence bundle from the first retrieval attempt.
 % \end{figure*}
 
 \subsection{Specialist Context Agents and Coordination}
+After the supervisor assigns a regime, MARLET dispatches the input to the relevant specialist agents. The agents do not engage in open-ended conversation with one another. Instead, each agent produces a structured record that is merged by the coordinator into a shared tutoring brief.
+
+The planner agent identifies the instructional goal and response strategy. When retrieval is needed, it also generates scoped search queries that specify what external evidence should be retrieved. The criteria agent summarizes explicit rubrics, grading rules, required output fields, or default answer-quality criteria. The diagnoser agent summarizes the learner’s visible state, including level, goals, possible misconceptions, prior confusion, or preferred explanation style. The retriever searches the external corpus only when activated by the route or retrieval gate. The critic agent checks the generated response for evidence use, criteria coverage, and pedagogical appropriateness.
+
+The key point is that each regime changes the priority of these agents. In PL, the planner agent provides the main organizing structure. In CF, the criteria agent defines the evaluation standard and the critic checks whether the response satisfies it. In AR, the diagnoser agent supplies the learner-state summary that shapes tone, depth, and feedback. In EG, the retriever provides source evidence, while the planner helps formulate search intent. The final tutor prompt is then assembled from the selected regime, plan, learner-state summary, criteria summary, retrieved evidence when available, and task instructions.
+
+This agent-regime design avoids forcing all tutoring needs into a single retrieval query. Instead of embedding one long query containing the topic, learner state, rubric, response goal, and evidence need, MARLET decomposes these requirements into structured prompt blocks. Retrieval is then guided by a clearer search intent, while learner-state and criteria information remain available as separate context for generation and critique.
+
+
+
 
 After routing, the coordinator has two control signals, not an answer. The regime $R$ decides which constraint receives prompt priority: ordered steps for PL, evaluation requirements for CF, user/task adaptation for AR, or source support for EG. Thus $R$ changes the instructions sent to the specialists and the order of blocks in the final prompt. The gate $G$ decides whether the brief should be connected to the corpus retriever. If $G=1$, MARLET will search external resources after the specialists finish; if $G=0$, it will assemble the prompt from the brief, tool observations, and inline context without adding retrieved chunks.
 
-MARLET then builds the brief through LLM-backed specialist agents inspired by tool-using and multi-agent systems~\cite{yao2023react,wu2024autogen}. Each active specialist receives the same standardized entry $x$, the regime $R$, the gate $G$, and a bounded tool set $\mathcal{U}$. The planner returns $p=(a,P)$: $a$ becomes the operating-plan block for generation, and $P$ is held as retrieval input. This is the bridge from agents to retrieval: $P$ is consumed by the retriever only when $G=1$; when $G=0$, no corpus search is run and the generator only sees the strategy $a$ with the other context blocks. The state diagnoser returns $\ell$, which tells the generator and critic what visible user/task state should shape explanation depth and tone. The criteria analyst returns $u$, which tells the generator and critic what requirements the answer must satisfy; when no explicit criteria are present and $R\ne\mathrm{CF}$, $u$ is filled by a default checklist rather than by an extra LLM call.
+MARLET then builds the brief through LLM-backed specialist agents inspired by tool-using and multi-agent systems~\cite{yao2023react,wu2024autogen}. Each active specialist receives the same standardized entry $x$, the regime $R$, the gate $G$, and a bounded tool set $\mathcal{U}$. The planner returns $p=(a,P)$, where $a$ is a response strategy and $P$ is a capped list of search queries. $P$ is the bridge from agents to retrieval: it is consumed by the retriever only when $G=1$; otherwise it remains a plan block for the generator. The state diagnoser returns $\ell$, which tells the generator and critic what visible user/task state should shape explanation depth and tone. The criteria analyst returns $u$, which tells the generator and critic what requirements the answer must satisfy; when no explicit criteria are present and $R\ne\mathrm{CF}$, $u$ is filled by a default checklist rather than by an extra LLM call.
 
 The tools are side-effect-free local functions: key-term extraction, inline-context inspection, dialogue-state inspection, criteria listing, and corpus search. Specialists may request these tools in their JSON output, and the coordinator also provides a small default observation to each specialist. Tool observations $T$ are capped by $Q$ and inserted as prompt context. This allows the agents to inspect a local resource before writing while keeping execution bounded.
 
-The coordinator dispatches $(x,R,G)$ to the planner, state diagnoser, and criteria analyst in parallel; each agent writes one structured record and optional tool requests; the coordinator validates those requests, executes only allowed local tools, caps the observations, and replaces malformed records with deterministic fallbacks. It then merges $(R,G,a,\ell,u,T)$ into one response brief while keeping $P$ as the candidate retrieval queries. The specialists therefore communicate through the coordinator's structured records, not by open-ended chat with each other. After this merge, the gate determines the next step: $G=1$ sends $P$ to retrieval to build evidence bundle $D$, while $G=0$ leaves $D$ empty and sends the brief directly to prompt assembly. In both cases, one final generator prompt receives explicit blocks for strategy, visible state, criteria, tool observations, and evidence instead of asking a single query string to carry every constraint.
+The coordinator dispatches $(x,R,G)$ to the planner, state diagnoser, and criteria analyst in parallel; each agent writes one structured record and optional tool requests; the coordinator validates those requests, executes only allowed local tools, caps the observations, and replaces malformed records with deterministic fallbacks. It then merges $(R,G,p,\ell,u,T)$ into one response brief. The specialists therefore communicate through the coordinator's structured records, not by open-ended chat with each other. After this merge, the gate determines the next step: $G=1$ sends planner queries $P$ to retrieval to build evidence bundle $D$, while $G=0$ leaves $D$ empty and sends the brief directly to prompt assembly. In both cases, one final generator prompt receives explicit blocks for plan, visible state, criteria, tool observations, and evidence instead of asking a single query string to carry every constraint.
 
 \subsection{Conditional Retrieval and Evidence Assembly}
 
-After the LLM specialists produce the response brief, the coordinator uses the gate $G$ to decide whether external evidence should enter the final prompt. If $G=0$, the generator receives the strategy, visible state, criteria, and tool observations without retrieved chunks. If $G=1$, the planner queries $P$ are sent to the corpus-search tool, while dialogue, criteria, and state summaries remain separate prompt blocks. This keeps retrieval focused on search while still preserving the other constraints for generation.
+After the LLM specialists produce the response brief, the coordinator uses the gate $G$ to decide whether external evidence should enter the final prompt. If $G=0$, the generator receives the plan, visible state, criteria, and tool observations without retrieved chunks. If $G=1$, the planner queries $P$ are sent to the corpus-search tool, while dialogue, criteria, and state summaries remain separate prompt blocks. This keeps retrieval focused on search while still preserving the other constraints for generation.
 
 The retrieval path has four bounded steps:
 \begin{equation}
@@ -165,13 +180,13 @@ where $\mathcal{I}$ is the configured corpus index, \textsc{Search} retrieves ca
 
 \subsection{Generation and Critic Revision}
 
-This is where retrieval and agent outputs converge: $(R,G,a,\ell,u,T)$ supplies route, strategy, state, criteria, and tool-observation fields, while $D$ supplies compact cited evidence. The final prompt contains task fields, response brief, evidence or inline context, and output requirements. The generator is the LLM-driven answer writer:
+This is where retrieval and agent outputs converge: $(R,G,p,\ell,u,T)$ supplies route, plan, state, criteria, and tool-observation fields, while $D$ supplies compact cited evidence. The final prompt contains task fields, response brief, evidence or inline context, and output requirements. The generator is the LLM-driven answer writer:
 \begin{equation}
-y_0=A_{\rm gen}(q,o,h,a,\ell,u,T,D,c).
+y_0=A_{\rm gen}(q,o,h,p,\ell,u,T,D,c).
 \end{equation}
-Its prompt contains $q$, optional answer options $o$, recent interaction history $h$, state summary $\ell$, strategy $a$, criteria summary $u$, tool observations $T$, and either retrieved evidence $D$ or inline context $c$. The generator is instructed by the task configuration to be correct, useful, concise but not terse, include a next step when appropriate, and cite retrieved evidence with document markers.
+Its prompt contains $q$, optional answer options $o$, recent interaction history $h$, state summary $\ell$, plan $p$, criteria summary $u$, tool observations $T$, and either retrieved evidence $D$ or inline context $c$. The generator is instructed by the task configuration to be correct, useful, concise but not terse, include a next step when appropriate, and cite retrieved evidence with document markers.
 
-The critic performs one bounded revision pass. It checks for missing citation markers when $D$ is nonempty, uncovered criteria from $r$, or a response style that conflicts with the inferred state. If no issue is found, $y=y_0$; otherwise the critic rewrites once using $(y_0,q,h,a,\ell,u,D,r)$ and the revised $y$ becomes the final answer.
+The critic performs one bounded revision pass. It checks for missing citation markers when $D$ is nonempty, uncovered criteria from $r$, or a response style that conflicts with the inferred state. If no issue is found, $y=y_0$; otherwise the critic rewrites once using $(y_0,q,h,p,\ell,u,D,r)$ and the revised $y$ becomes the final answer.
 
 \begin{center}
 \centering
@@ -185,7 +200,7 @@ The critic performs one bounded revision pass. It checks for missing citation ma
 \multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Require:} entry $x=(q,o,c,h,r,v)$, caps $K,Q,L,N$, index $\mathcal{I}$, tools $\mathcal{U}$, thresholds $(\tau_{\rm mid},\tau_{\rm plan},\tau_2)$.}\\
 \multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Return:} answer $y$ and internal fields $(R,G,p,\ell,u,T,D)$.}\\
 \midrule
-1: & $b\leftarrow \mathrm{concat}(q,c,r,h)$; $(s_{\rm ev},s_{\rm co},s_{\rm cr},s_{\rm pl},s_{\rm ad})\leftarrow\mathrm{CueScores}(b)$\\
+1: & $b\leftarrow \mathrm{concat}(q,c,r,h)$; $(s_{\rm ev},s_{\rm cr},s_{\rm pl},s_{\rm ad})\leftarrow\mathrm{CueScores}(b)$\\
 2: & $R\leftarrow R(x)$; $G\leftarrow G(x)$\\
 3: & \textbf{parallel do}\\
 4: & \quad $p=(a,P),T_p\leftarrow\mathrm{Planner}(x,R,G,\mathcal{U})$\\
@@ -198,12 +213,12 @@ The critic performs one bounded revision pass. It checks for missing citation ma
 11: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},P)),q),Q,L)$\\
 12: & \textbf{end if}\\
 13: & $D_0\leftarrow D$\\
-14: & $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,a,\ell,u,T,D,c),N)$\\
+14: & $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,p,\ell,u,T,D,c),N)$\\
 15: & \textbf{if} $G_2(x)=1$ \textbf{then}\\
 16: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},[q])),q),Q,L)$\\
-17: & \quad $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,a,\ell,u,T,D,c),N)$\\
+17: & \quad $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,p,\ell,u,T,D,c),N)$\\
 18: & \textbf{end if}\\
-19: & $y\leftarrow\mathrm{CriticOnce}(y_0,q,h,a,\ell,u,D,r)$\\
+19: & $y\leftarrow\mathrm{CriticOnce}(y_0,q,h,p,\ell,u,D,r)$\\
 20: & \textbf{return} $y,(R,G,p,\ell,u,T,D)$\\
 \bottomrule
 \end{tabular}
@@ -248,8 +263,8 @@ Data & Metric & RAG & Agentic & Ours & $\Delta$ \\
 \multirow{5}{*}{EduBench} & EB12D & 0.367 & \textbf{0.398} & \textbf{0.398} & $+0.031^{\star\star\star}$ \\
 & Rubric & 0.705 & \textbf{0.891} & \textbf{0.891} & $+0.186^{\star\star\star}$ \\
 & EduAlign & \textbf{0.166} & 0.130 & 0.126 & $-0.040^{\star\star}$ \\
-& Latency (s) & 19.83 & \textbf{13.73} & 13.90 & $-5.92^{\star\star\star}$ \\
-& Tokens & 4020 & \textbf{2224} & 2226 & $-1794^{\star\star\star}$ \\
+& Latency (s) & 19.83 & \textbf{23.73} & 13.90 & $-5.92^{\star\star\star}$ \\
+& Tokens & 4020 & \textbf{5224} & 2226 & $-1794^{\star\star\star}$ \\
 \bottomrule
 \end{tabular}
 \begin{minipage}{\columnwidth}\scriptsize\vspace{0.1em}Agentic is the prior multi-agent non-retrieval snapshot. Bold marks the best displayed value after rounding. $\Delta$ and significance compare paired Ours--RAG only: $^{\star\star\star}p{<}10^{-4}$, $^{\star\star}p{<}0.01$, $^{\star}p{<}0.05$. Higher is better for quality; lower is better for latency and tokens. Runtime is mean wall-clock seconds/sample on the experiment server.\end{minipage}
