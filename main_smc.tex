@@ -78,17 +78,17 @@ As stated earlier, educational tutoring requires more than answering a question 
 
 % As a running example, consider a request that includes a question, a prior exchange showing confusion, and a grading rule. Classical RAG can embed all of this text, but the retrieval query must then represent topic, user state, and judgment criteria at once. MARTC first separates them: the route decides which constraint should dominate the answer, specialists fill structured slots for plan, state, and criteria, retrieval searches only the planned search queries when needed, and prompt assembly puts all slots plus evidence into one generator prompt.
 
-\subsection{Input Entry and Inference Caps}
+\subsection{Input Representation and Output Contract}
 
-For one sample, \textsc{MARTC} first standardizes all visible fields into
+\textsc{MARTC} starts by converting each sample into one normalized input entry:
 \begin{equation}
 x=(q,o,c,h,r,v).
 \end{equation}
-where $q$ is the question or task; $o$ answer options; $c$ inline context; $h$ recent interaction history; $r$ explicit criteria; and $v$ images. Empty fields are allowed, so the same representation covers factual questions, assessment, feedback, and planning.
+The entry contains only information visible before generation. Here, $q$ is the question or task; $o$ is any answer-option set; $c$ is inline context already provided with the request; $h$ is recent interaction history; $r$ is explicit criteria such as a rubric or required feedback points; and $v$ stores images when present. Any field may be empty. This single interface lets MARTC handle different request types without changing the downstream pipeline.
 
-The only user-facing output is answer $y$. Internally, MARTC keeps the route choice, retrieval decision, evidence bundle $D$, and tool observations $T$. Planner output, state summary, criteria summary, $T$, and $D$ become prompt blocks. Caps keep inference bounded: $K$ for planner/retrieval queries, $Q$ for chunks/tool calls, $L$ for evidence length, and $N$ for response tokens.
+The only user-facing output is the final answer $y$. All other variables are internal slots used to assemble the final prompt. During inference, the planner fills a plan slot $p=(a,P)$, where $a$ is a short response strategy and $P$ is a capped list of retrieval queries. The diagnoser fills a state slot $\ell$ from the visible question and history. The criteria agent fills a criteria slot $u$ from the rubric or, if no rubric is provided, from a default answer-quality checklist.
 
-The core design choice is to avoid asking one retrieval query to carry every constraint. MARTC instead fills three structured slots. The \emph{planner} writes $p=(a,P)$, where $a$ is a short answer strategy and $P$ is a capped list of search queries that tell the retriever what to look for. The \emph{state diagnoser} writes state summary $\ell$, inferred only from $q$ and $h$. The \emph{criteria analyst} writes criteria summary $u$, preserving explicit criteria $r$ or supplying a short correctness/clarity/evidence/actionability checklist. This separates search, task state, and answer requirements~\cite{liu2026agenttutor,borchers2025adaptivity}.
+MARTC also maintains two bounded context containers. Tool observations $T$ store outputs from allowed local inspection tools, and the evidence bundle $D$ stores retrieved snippets when retrieval is activated. The caps define the maximum work allowed at each stage: $K$ limits queries in $P$, $Q$ limits retrieved chunks and tool observations, $L$ limits evidence length, and $N$ limits final response tokens. These definitions are introduced here so later stages have a clear contract: routing decides what kind of context is needed, specialists fill the appropriate slots, retrieval optionally fills $D$, and prompt assembly combines the slots into one augmented generator prompt. This prevents topic, state, criteria, and evidence needs from being compressed into a single long retrieval query~\cite{liu2026agenttutor,borchers2025adaptivity}.
 
 \subsection{Supervisor Routing}
 The supervisory router is responsible for mapping each input sample to a pedagogical regime and activating the corresponding specialist agents. Given an input sample, the router examines the visible question, optional context, dialogue history, learner-state information, rubric or criteria text, and task metadata. It then estimates four types of context need: planning, criteria feedback, learner-state adaptation, and evidence grounding.
