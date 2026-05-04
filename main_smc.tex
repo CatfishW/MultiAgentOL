@@ -197,29 +197,25 @@ This agent-regime design avoids forcing all tutoring needs into a single retriev
 \toprule
 \multicolumn{2}{@{}l@{}}{\textbf{Algorithm 1: \textsc{MARTC} Inference Process}}\\
 \midrule
-\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Require:} entry $x=(q,o,c,h,r,v)$, caps $K,Q,L,N$, index $\mathcal{I}$, tools $\mathcal{U}$, thresholds $(\tau_{\rm mid},\tau_{\rm plan},\tau_2)$.}\\
+\multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Require:} entry $x=(q,o,c,h,r,v)$, caps $K,Q,L,N$, index $\mathcal{I}$, tools $\mathcal{U}$, thresholds $(\tau_{\rm mid},\tau_{\rm plan})$.}\\
 \multicolumn{2}{@{}p{0.96\columnwidth}@{}}{\textbf{Return:} answer $y$ and internal fields $(R,G,p,\ell,u,T,D)$.}\\
 \midrule
 1: & $b\leftarrow \mathrm{concat}(q,c,r,h)$; $(s_{\rm ev},s_{\rm cr},s_{\rm pl},s_{\rm ad})\leftarrow\mathrm{CueScores}(b)$\\
-2: & $R\leftarrow R(x)$; $G\leftarrow G(x)$\\
+2: & $R\leftarrow R(x)$ using Eq. (4); $G\leftarrow G(x)$ using Eq. (5)\\
 3: & \textbf{parallel do}\\
 4: & \quad $p=(a,P),T_p\leftarrow\mathrm{Planner}(x,R,G,\mathcal{U})$\\
-5: & \quad $\ell,T_\ell\leftarrow\mathrm{State}(q,h,\mathcal{U})$\\
-6: & \quad \textbf{if} $r\ne\emptyset$ \textbf{or} $R=\mathrm{CF}$ \textbf{then} $u,T_u\leftarrow\mathrm{Criteria}(x,R,\mathcal{U})$\\
+5: & \quad $\ell,T_\ell\leftarrow\mathrm{Diagnoser}(q,h,\mathcal{U})$\\
+6: & \quad \textbf{if} $r\ne\emptyset$ or $R=\mathrm{CF}$ \textbf{then} $u,T_u\leftarrow\mathrm{Criteria}(x,R,\mathcal{U})$\\
 7: & \quad \textbf{else} $u\leftarrow\mathrm{DefaultCriteria}()$; $T_u\leftarrow\emptyset$\\
-8: & \textbf{end parallel}\\
-9: & $P\leftarrow\mathrm{cap}(P,K)$; $p\leftarrow(a,P)$; $T\leftarrow\mathrm{cap}(T_p\cup T_\ell\cup T_u,Q)$; $D\leftarrow\emptyset$\\
-10: & \textbf{if} $G=1$ \textbf{then}\\
-11: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},P)),q),Q,L)$\\
-12: & \textbf{end if}\\
-13: & $D_0\leftarrow D$\\
+8: & \quad \textbf{end if}\\
+9: & \textbf{end parallel}\\
+10: & $P\leftarrow\mathrm{cap}(P,K)$; $p\leftarrow(a,P)$; $T\leftarrow\mathrm{cap}(T_p\cup T_\ell\cup T_u,Q)$; $D\leftarrow\emptyset$\\
+11: & \textbf{if} $G=1$ \textbf{then}\\
+12: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},P)),q),Q,L)$\\
+13: & \textbf{end if}\\
 14: & $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,p,\ell,u,T,D,c),N)$\\
-15: & \textbf{if} $G_2(x)=1$ \textbf{then}\\
-16: & \quad $D\leftarrow \mathrm{Pack}(\mathrm{Rerank}(\mathrm{Dedup}(\mathrm{Search}(\mathcal{I},[q])),q),Q,L)$\\
-17: & \quad $y_0\leftarrow A_{\rm gen}(\mathrm{Prompt}(q,o,h,p,\ell,u,T,D,c),N)$\\
-18: & \textbf{end if}\\
-19: & $y\leftarrow\mathrm{CriticOnce}(y_0,q,h,p,\ell,u,D,r)$\\
-20: & \textbf{return} $y,(R,G,p,\ell,u,T,D)$\\
+15: & $y\leftarrow\mathrm{CriticOnce}(y_0,q,h,p,\ell,u,D,r)$\\
+16: & \textbf{return} $y,(R,G,p,\ell,u,T,D)$\\
 \bottomrule
 \end{tabular}
 \end{center}
