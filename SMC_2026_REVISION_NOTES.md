@@ -1,7 +1,8 @@
 # SMC 2026 Revision Notes
 
-This pass addresses reviewer 7 (review 21384) and reviewer 9 (review
-21386) against `main_smc.tex`.
+This light-touch pass addresses reviewer 7 (review 21384) and reviewer 9
+(review 21386) while preserving the original organization, paragraph
+structure, and wording wherever possible.
 
 ## Changes made
 
@@ -18,8 +19,9 @@ This pass addresses reviewer 7 (review 21384) and reviewer 9 (review
    Agentic RAG, MA-RAG, and multi-agent tutoring systems.
 4. **Router made auditable.** The exact four cue lexicons, score
    normalization, explicit-input bonuses, thresholds, cross-backbone
-   reuse, and a known lexical false-positive example are reported. The
-   implementation remains the authoritative source:
+   reuse, explicit regime-hint precedence, and a known lexical
+   false-positive example are reported. The implementation remains the
+   authoritative source:
    `framework_codes/src/eduagentic/ml/regime_router.py`.
 5. **Threshold sensitivity reported cautiously.** The manuscript reports
    the existing gate sweep over `[0.30, 0.55]` and the flat aggregate
@@ -44,6 +46,10 @@ This pass addresses reviewer 7 (review 21384) and reviewer 9 (review
 10. **Resource trade-offs stated explicitly.** The discussion now notes
     the 4B TutorEval latency increase and the small 27B TutorEval token
     increase instead of presenting MARTC as uniformly cheaper.
+11. **Submission layout preserved.** Redundant bibliography URLs were
+    removed and long author lists use standard ``et al.'' truncation.
+    The rebuilt manuscript remains six letter-size pages without reducing
+    the template's body or reference font sizes.
 
 ## Reviewer coverage
 
